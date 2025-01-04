@@ -212,9 +212,21 @@ Function ExtractCycleDataFromWorksheet(ByVal ws As Worksheet) As Collection
     
     On Error Resume Next
     
+    '添加错误检查
+    If ws Is Nothing Then
+        Set ExtractCycleDataFromWorksheet = New Collection
+        Exit Function 
+    End If
+    
     '获取工作表的有效范围
     lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    
+    '添加数据有效性检查
+    If lastRow <= 1 Or lastCol <= 0 Then
+        Set ExtractCycleDataFromWorksheet = New Collection
+        Exit Function
+    End If
     
     '第一步：识别所有数据组
     Set dataGroups = New Collection
@@ -233,9 +245,9 @@ Function ExtractCycleDataFromWorksheet(ByVal ws As Worksheet) As Collection
         
         '处理该组的每一行数据
         For i = 2 To lastRow
+            On Error Resume Next
             If Not IsEmpty(ws.Cells(i, j)) Then
                 '安全地转换数据类型
-                On Error Resume Next
                 stepNo = CLng(ws.Cells(i, j).value)
                 batteryCode = CStr(ws.Cells(i, j + 1).value)
                 capacity = Abs(CDbl(ws.Cells(i, j + 2).value))
@@ -248,8 +260,13 @@ Function ExtractCycleDataFromWorksheet(ByVal ws As Worksheet) As Collection
                     '将数据对象添加到组数据集合
                     groupData.Add cycleData
                 End If
-                On Error Resume Next
             End If
+            If Err.Number <> 0 Then
+                '记录错误并继续
+                Debug.Print "处理第" & i & "行数据时出错:" & Err.Description
+                Err.Clear
+            End If
+            On Error GoTo 0
         Next i
         
         '将该组数据集合添加到结果集合
@@ -580,4 +597,64 @@ Function ReadCommonConfig() As Collection
     
     '返回结果集合
     Set ReadCommonConfig = result
+End Function
+
+'******************************************
+' 函数: ValidateConfig
+' 用途: 验证循环配置和公共配置的有效性
+' 参数:
+'   - cycleConfig: 循环配置集合
+'   - commonConfig: 公共配置集合
+' 返回: Boolean值，表示配置是否有效
+'******************************************
+Function ValidateConfig(ByVal cycleConfig As Collection, ByVal commonConfig As Collection) As Boolean
+    On Error Resume Next
+    
+    '检查必要的配置项
+    If Not cycleConfig.Exists(FIELD_TEST_REPORT_TITLE) Then
+        MsgBox "缺少测试报告标题配置!", vbExclamation
+        ValidateConfig = False
+        Exit Function
+    End If
+    
+    '检查工步配置的完整性
+    If Not commonConfig.Exists("StepDetails") Then
+        MsgBox "缺少工步详细配置!", vbExclamation 
+        ValidateConfig = False
+        Exit Function
+    End If
+    
+    ValidateConfig = True
+End Function
+
+'添加新的日志模块
+Private Sub LogMessage(ByVal message As String, Optional ByVal isError As Boolean = False)
+    #If Mac Then
+        Debug.Print Now & IIf(isError, " [ERROR] ", " [INFO] ") & message
+    #Else
+        '可以写入日志文件
+        Dim logFile As String
+        logFile = ThisWorkbook.Path & "\log.txt"
+        
+        Open logFile For Append As #1
+        Print #1, Now & IIf(isError, " [ERROR] ", " [INFO] ") & message
+        Close #1
+    #End If
+End Sub
+
+Private Function SafeCloseWorkbook(ByVal wb As Workbook) As Boolean
+    On Error Resume Next
+    
+    If Not wb Is Nothing Then
+        If Not wb Is ThisWorkbook Then
+            wb.Close SaveChanges:=False
+        End If
+    End If
+    
+    If Err.Number = 0 Then
+        SafeCloseWorkbook = True
+    Else
+        LogMessage "关闭工作簿时出错: " & Err.Description, True
+        SafeCloseWorkbook = False
+    End If
 End Function

@@ -322,6 +322,34 @@ Private Sub SetupBasicInfo(ByVal ws As Worksheet, ByVal commonConfig As Collecti
     End With
 End Sub
 
+'******************************************
+' 函数: ValidateRawData
+' 用途: 验证原始数据的有效性
+' 参数: rawData - 原始数据集合
+' 返回: Boolean值，表示数据是否有效
+'******************************************
+Private Function ValidateRawData(ByVal rawData As Collection) As Boolean
+    On Error Resume Next
+    
+    '检查必要的数据集是否存在
+    If rawData.Count < 3 Then
+        MsgBox "缺少必要的数据!", vbExclamation
+        ValidateRawData = False
+        Exit Function
+    End If
+    
+    '检查每个数据集的有效性
+    If rawData("cyclesData").Count = 0 Then
+        MsgBox "循环数据为空!", vbExclamation
+        ValidateRawData = False
+        Exit Function
+    End If
+    
+    '...其他验证...
+    
+    ValidateRawData = True
+End Function
+
 
 
 
