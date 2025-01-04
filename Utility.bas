@@ -251,7 +251,7 @@ Function ExtractCycleDataFromWorksheet(ByVal ws As Worksheet) As Collection
                 stepNo = CLng(ws.Cells(i, j).value)
                 batteryCode = CStr(ws.Cells(i, j + 1).value)
                 capacity = Abs(CDbl(ws.Cells(i, j + 2).value))
-                energy = Abs(CDbl(ws.Cells(i, j + 4).value))
+                energy = Abs(CDbl(ws.Cells(i, j + 3).value))
                 
                 If Err.Number = 0 Then
                     Set cycleData = New CBatteryCycleRaw
@@ -576,16 +576,16 @@ Function ReadCommonConfig() As Collection
     '添加电池名字到单独的集合
     Dim batteryNames As New Collection
     For i = 1 To batteryNameTable.ListRows.Count
-        Dim batteryNo As String
+        Dim batteryNo As Long
         Dim batteryName As String
         
         '获取序号和名字
-        batteryNo = CStr(batteryNameTable.ListColumns("序号").Range(i + 1).Value)
+        batteryNo = CLng(batteryNameTable.ListColumns("序号").Range(i + 1).Value)
         batteryName = CStr(batteryNameTable.ListColumns("名字").Range(i + 1).Value)
         
         '将电池名字添加到集合中，以序号作为键
         If Len(batteryName) > 0 Then  '只添加有名字的记录
-            batteryNames.Add batteryName, batteryNo
+            batteryNames.Add batteryName, CStr(batteryNo)
         End If
     Next i
     

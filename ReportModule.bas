@@ -169,8 +169,12 @@ Private Function OutputReport(ByVal reportIndex As Long, _
         ws.Cells.Clear
     End If
     
-    '在这里添加报告内容生成的代码
-    SetupWorksheetStyle ws, commonConfig, reportName
+    '设置工作表样式和内容
+    Dim nextRow As Long
+    nextRow = SetupWorksheetStyle(ws, commonConfig, reportName)
+    
+    '添加循环数据
+    nextRow = OutputCycleData(ws, rawData, cycleConfig, commonConfig)
     
     '设置函数返回值为成功
     OutputReport = True
@@ -217,8 +221,9 @@ End Function
 '******************************************
 ' 函数: SetupWorksheetStyle
 ' 用途: 设置工作表样式，包括标题、表格等
+' 返回: 最后一行的下一行的行号
 '******************************************
-Private Sub SetupWorksheetStyle(ByVal ws As Worksheet, ByVal commonConfig As Collection, ByVal reportName As String)
+Private Function SetupWorksheetStyle(ByVal ws As Worksheet, ByVal commonConfig As Collection, ByVal reportName As String) As Long
     '保存当前引用样式
     Dim originalStyle As Boolean
     originalStyle = Application.ReferenceStyle
@@ -238,14 +243,18 @@ Private Sub SetupWorksheetStyle(ByVal ws As Worksheet, ByVal commonConfig As Col
     Dim lastRow As Long
     lastRow = SetupMainTable(ws, commonConfig)
     
-    '设置基本信息
-    SetupBasicInfo ws, commonConfig, lastRow
+    '设置基本信息并获取最后一行
+    Dim finalRow As Long
+    finalRow = SetupBasicInfo(ws, commonConfig, lastRow)
     
     '恢复原始引用样式
     If originalStyle <> Application.ReferenceStyle Then
         Application.ReferenceStyle = originalStyle
     End If
-End Sub
+    
+    '返回最后一行的下一行的行号
+    SetupWorksheetStyle = finalRow + 1
+End Function
 
 '******************************************
 ' 过程: InitializeWorksheet
@@ -319,10 +328,15 @@ Private Sub SetupTableStructure(ByVal ws As Worksheet, ByVal lastRow As Long)
 End Sub
 
 '******************************************
-' 过程: SetupBasicInfo
+' 函数: SetupBasicInfo
 ' 用途: 设置基本信息区域
+' 参数: 
+'   - ws: 工作表对象
+'   - commonConfig: 公共配置集合
+'   - lastRow: 上一个表格的最后一行
+' 返回: 第二行信息的行号
 '******************************************
-Private Sub SetupBasicInfo(ByVal ws As Worksheet, ByVal commonConfig As Collection, ByVal lastRow As Long)
+Private Function SetupBasicInfo(ByVal ws As Worksheet, ByVal commonConfig As Collection, ByVal lastRow As Long) As Long
     Dim infoRow As Long
     infoRow = lastRow + 3
     
@@ -333,7 +347,10 @@ Private Sub SetupBasicInfo(ByVal ws As Worksheet, ByVal commonConfig As Collecti
         '设置第二行信息
         SetupInfoRow ws, infoRow + 1, commonConfig, False
     End With
-End Sub
+    
+    '返回第二行信息的行号
+    SetupBasicInfo = infoRow + 1
+End Function
 
 '******************************************
 ' 函数: ValidateRawData
