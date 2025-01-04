@@ -12,12 +12,14 @@ Option Explicit
 '   - rawData: 原始数据集合
 '   - cycleConfig: 循环配置
 '   - commonConfig: 公共配置
-' 返回: 最后一行的下一行行号
+' 返回: Boolean值，表示数据输出是否成功
 '******************************************
 Public Function OutputCycleData(ByVal ws As Worksheet, _
                               ByVal rawData As Collection, _
                               ByVal cycleConfig As Collection, _
-                              ByVal commonConfig As Collection) As Long
+                              ByVal commonConfig As Collection) As Boolean
+    
+    On Error GoTo ErrorHandler
     
     '常量定义
     Const START_COLUMN As Long = 15    '起始列号
@@ -32,13 +34,17 @@ Public Function OutputCycleData(ByVal ws As Worksheet, _
     Dim groupData As Collection        '单个电池的数据集合
     Dim cycleData As CBatteryCycleRaw  '单条循环数据
     Dim batteryNames As Collection     '电池名称集合
-    Dim firstEnergy As Double          '首次能量值
-    Dim firstCapacity As Double        '首次容量值
     
     '初始化
     Set batteryNames = commonConfig("BatteryNames")
     currentRow = START_ROW
     currentColumn = START_COLUMN
+    
+    '检查数据有效性
+    If rawData Is Nothing Or rawData.Count = 0 Then
+        OutputCycleData = False
+        Exit Function
+    End If
     
     '遍历每组数据(每个电池)
     For i = 1 To rawData(1).Count
@@ -58,8 +64,13 @@ Public Function OutputCycleData(ByVal ws As Worksheet, _
         currentColumn = currentColumn + COLUMN_GAP
     Next i
     
-    '返回最后一行的行号
-    OutputCycleData = currentRow
+    '设置成功标志
+    OutputCycleData = True
+    Exit Function
+    
+ErrorHandler:
+    OutputCycleData = False
+    Debug.Print "OutputCycleData error: " & Err.Description
 End Function
 
 '******************************************

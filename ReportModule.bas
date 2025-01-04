@@ -174,7 +174,11 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     nextRow = SetupWorksheetStyle(ws, commonConfig, reportName)
     
     '添加循环数据
-    nextRow = OutputCycleData(ws, rawData, cycleConfig, commonConfig)
+    If Not OutputCycleData(ws, rawData, cycleConfig, commonConfig) Then
+        MsgBox "输出循环数据失败！", vbExclamation
+        OutputReport = False
+        Exit Function
+    End If
     
     '设置函数返回值为成功
     OutputReport = True
