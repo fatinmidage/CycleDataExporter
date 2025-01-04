@@ -138,6 +138,15 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     
     On Error GoTo ErrorHandler
     
+    '保存当前引用样式
+    Dim originalStyle As Boolean
+    originalStyle = Application.ReferenceStyle
+    
+    '设置为R1C1引用样式
+    If Application.ReferenceStyle <> xlR1C1 Then
+        Application.ReferenceStyle = xlR1C1
+    End If
+    
     '获取当前工作簿
     Dim wb As Workbook
     Set wb = ThisWorkbook
@@ -163,11 +172,29 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     '在这里添加报告内容生成的代码
     SetupWorksheetStyle ws, commonConfig, reportName
     
+    '设置函数返回值为成功
     OutputReport = True
+    
+    '激活工作表
     ws.Activate
+    
+    '定位到第一行第一列,方便用户查看报告开头
+    ws.Cells(1, 1).Select
+    
+    '恢复原始引用样式
+    If originalStyle <> Application.ReferenceStyle Then
+        Application.ReferenceStyle = originalStyle
+    End If
+    
+    '正常退出函数
     Exit Function
     
 ErrorHandler:
+    '确保在出错时也恢复引用样式
+    If originalStyle <> Application.ReferenceStyle Then
+        Application.ReferenceStyle = originalStyle
+    End If
+    
     OutputReport = False
     MsgBox "输出报告时发生错误：" & vbNewLine & Err.Description, vbCritical, "错误"
 End Function
@@ -192,9 +219,14 @@ End Function
 ' 用途: 设置工作表样式，包括标题、表格等
 '******************************************
 Private Sub SetupWorksheetStyle(ByVal ws As Worksheet, ByVal commonConfig As Collection, ByVal reportName As String)
-    '保存并设置引用样式
+    '保存当前引用样式
     Dim originalStyle As Boolean
-    originalStyle = SetupReferenceStyle()
+    originalStyle = Application.ReferenceStyle
+    
+    '设置为R1C1引用样式
+    If Application.ReferenceStyle <> xlR1C1 Then
+        Application.ReferenceStyle = xlR1C1
+    End If
     
     '初始化工作表
     InitializeWorksheet ws
@@ -209,26 +241,7 @@ Private Sub SetupWorksheetStyle(ByVal ws As Worksheet, ByVal commonConfig As Col
     '设置基本信息
     SetupBasicInfo ws, commonConfig, lastRow
     
-    '恢复引用样式
-    RestoreReferenceStyle originalStyle
-End Sub
-
-'******************************************
-' 函数: SetupReferenceStyle
-' 用途: 设置R1C1引用样式并返回原始样式
-'******************************************
-Private Function SetupReferenceStyle() As Boolean
-    SetupReferenceStyle = Application.ReferenceStyle
-    If Application.ReferenceStyle <> xlR1C1 Then
-        Application.ReferenceStyle = xlR1C1
-    End If
-End Function
-
-'******************************************
-' 过程: RestoreReferenceStyle
-' 用途: 恢复原始引用样式
-'******************************************
-Private Sub RestoreReferenceStyle(ByVal originalStyle As Boolean)
+    '恢复原始引用样式
     If originalStyle <> Application.ReferenceStyle Then
         Application.ReferenceStyle = originalStyle
     End If
