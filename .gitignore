@@ -1,0 +1,17 @@
+# 移除 .DS_Store 文件
+git rm --cached .DS_Store
+git rm --cached "测试工具/.DS_Store"
+
+# 移除 Excel 临时文件（以 ~$ 开头的文件）
+git rm --cached "测试工具/~$DY循环-DY.xlsx"
+git rm --cached "测试工具/~$测试工具Ver_4.0.1.xlsm" 
+
+# 已有内容
+.DS_Store
+~$*
+*.tmp
+
+# 添加 Excel 文件
+*.xlsx
+*.xlsm
+*.xls 
