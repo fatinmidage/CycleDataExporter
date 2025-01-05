@@ -179,6 +179,20 @@ Private Function OutputReport(ByVal reportIndex As Long, _
         OutputReport = False
         Exit Function
     End If
+
+    '添加中检数据
+    Dim zpTables As Collection
+    Set zpTables = OutputZPData(ws, rawData, cycleConfig, commonConfig, nextRow)
+    If zpTables.Count = 0 Then
+        MsgBox "输出中检数据失败！", vbExclamation
+        OutputReport = False
+        Exit Function
+    End If
+
+    '更新nextRow（使用最后一个表格的最后一行）
+    Dim lastTable As ListObject
+    Set lastTable = zpTables(zpTables.Count)
+    nextRow = lastTable.Range.Row + lastTable.Range.Rows.Count + 2
     
     '设置函数返回值为成功
     OutputReport = True

@@ -412,13 +412,30 @@ Function ReadCycleConfig(ByVal reportIndex As Long) As Collection
     result.Add lo.ListColumns(FIELD_TEST_REPORT_TITLE).Range(reportIndex + 1).Value, FIELD_TEST_REPORT_TITLE
     
     '添加中检间隔
-    result.Add lo.ListColumns(FIELD_ZP_INTERVAL).Range(reportIndex + 1).Value, FIELD_ZP_INTERVAL
+    Dim zpInterval As Variant
+    zpInterval = lo.ListColumns(FIELD_ZP_INTERVAL).Range(reportIndex + 1).Value
+    
+    '验证中检间隔是否为空且为正整数
+    If IsEmpty(zpInterval) Or Not IsNumeric(zpInterval) Or zpInterval <= 0 Or Int(zpInterval) <> zpInterval Then
+        MsgBox "中检间隔必须是正整数!", vbExclamation
+        Set ReadCycleConfig = result
+        Exit Function
+    End If
+    
+    result.Add zpInterval, FIELD_ZP_INTERVAL
     
     '添加显示工步号
     result.Add lo.ListColumns(FIELD_DISPLAY_STEP_NO).Range(reportIndex + 1).Value, FIELD_DISPLAY_STEP_NO
     
     '添加计算方法
-    result.Add lo.ListColumns(FIELD_CALC_METHOD).Range(reportIndex + 1).Value, FIELD_CALC_METHOD
+    Dim calcMethod As Variant
+    calcMethod = lo.ListColumns(FIELD_CALC_METHOD).Range(reportIndex + 1).Value
+    If calcMethod <> "三圈中检求平均值" And calcMethod <> "仅中检一次" Then
+        MsgBox "容量标定方式必须是'三圈中检求平均值'或'仅中检一次'!", vbExclamation
+        Set ReadCycleConfig = result
+        Exit Function
+    End If
+    result.Add calcMethod, FIELD_CALC_METHOD
     
     '添加90%SOC测量工步号和放电工步号
     result.Add lo.ListColumns(FIELD_SOC_90_MEASURE_STEP_NO).Range(reportIndex + 1).Value, FIELD_SOC_90_MEASURE_STEP_NO
