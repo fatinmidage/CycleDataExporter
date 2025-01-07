@@ -6,7 +6,7 @@ Option Explicit
 
 Private m_stepNo As Long        '工步号
 Private m_batteryCode As String '电池条码
-Private m_stepTime As Variant   '工步时间 - 使用Variant以适应不同格式
+Private m_stepTime As String    '工步时间 - 使用String类型
 Private m_voltage As Double     '电压
 Private m_current As Double     '电流
 
@@ -22,7 +22,7 @@ Private m_current As Double     '电流
 '******************************************
 Public Sub Initialize(ByVal stepNo As Long, _
                      ByVal batteryCode As String, _
-                     ByVal stepTime As Variant, _
+                     ByVal stepTime As String, _
                      ByVal voltage As Double, _
                      ByVal current As Double)
     m_stepNo = stepNo
@@ -43,7 +43,7 @@ Public Property Get BatteryCode() As String
 End Property
 
 '属性: StepTime
-Public Property Get StepTime() As Variant
+Public Property Get StepTime() As String
     StepTime = m_stepTime
 End Property
 

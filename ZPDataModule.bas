@@ -4,6 +4,11 @@
 '******************************************
 Option Explicit
 
+'常量定义
+Private Const START_COLUMN As Long = 3     '起始列号
+Private Const TABLE_WIDTH As Long = 11     '表格宽度（循环圈数到DC-IR Rise）
+Private Const COLUMN_GAP As Long = 14      '表格间隔
+
 '******************************************
 ' 函数: OutputZPData
 ' 用途: 输出中检数据到工作表
@@ -23,25 +28,15 @@ Public Function OutputZPData(ByVal ws As Worksheet, _
     
     On Error GoTo ErrorHandler
     
-    '常量定义
-    Const START_COLUMN As Long = 3     '起始列号
-    Const TABLE_WIDTH As Long = 11     '表格宽度（循环圈数到DC-IR Rise）
-    Const COLUMN_GAP As Long = 14      '表格间隔
-    
     '变量声明
-    Dim i As Long                      '循环计数器
-    Dim currentRow As Long             '当前行号
-    Dim currentColumn As Long          '当前列号
-    Dim zpDataCollection As Collection '中检数据集合
-    Dim batteryCount As Long          '电池数量
-    Dim tableCollection As Collection  '存储创建的ListObject集合
-    Dim baseCapacity As Double        '基准容量
-    Dim baseEnergy As Double          '基准能量
+    Dim tableCollection As New Collection
+    Dim currentRow As Long
+    Dim currentColumn As Long
+    Dim batteryCount As Long
     
     '初始化
     currentRow = nextRow
     currentColumn = START_COLUMN
-    Set tableCollection = New Collection
     
     '验证数据有效性
     If Not IsValidData(rawData) Then
@@ -49,102 +44,214 @@ Public Function OutputZPData(ByVal ws As Worksheet, _
         Exit Function
     End If
     
-    Set zpDataCollection = rawData(2)
-    batteryCount = zpDataCollection.Count
+    '获取电池数量
+    batteryCount = GetBatteryCount(rawData)
     
     '遍历每个电池的中检数据
+    Dim i As Long
     For i = 1 To batteryCount
-        Dim batteryZPData As Collection
-        Set batteryZPData = zpDataCollection(i)
+        '处理单个电池的数据
+        ProcessBatteryData ws, rawData, cycleConfig, commonConfig, i, currentRow, currentColumn, tableCollection
         
-        '输出表头和标题
-        OutputTableHeader ws, currentRow, currentColumn, i, batteryZPData, commonConfig
-        
-        '创建ListObjects
-        Dim basicDataRange As Range
-        Dim dcirRange As Range
-        Dim dcirRiseRange As Range
-        
-        '设置基本数据列范围
-        Set basicDataRange = ws.Range(ws.Cells(currentRow + 1, currentColumn), ws.Cells(currentRow + 1, currentColumn + 4))
-        '设置DCIR百分比列范围
-        Set dcirRange = ws.Range(ws.Cells(currentRow + 1, currentColumn + 5), ws.Cells(currentRow + 1, currentColumn + 7))
-        '设置DC-IR Rise百分比列范围
-        Set dcirRiseRange = ws.Range(ws.Cells(currentRow + 1, currentColumn + 8), ws.Cells(currentRow + 1, currentColumn + 10))
-        
-        '创建ListObject
-        Dim basicDataTable As ListObject
-        Dim dcirTable As ListObject
-        Dim dcirRiseTable As ListObject
-        
-        '基本数据表
-        Set basicDataTable = ws.ListObjects.Add(xlSrcRange, basicDataRange, , xlYes)
-        basicDataTable.Name = "BasicData_" & i
-        tableCollection.Add basicDataTable, "BasicData_" & i
-        
-        '设置基本数据表列标题
-        With basicDataTable.HeaderRowRange
-            .Cells(1, 1).Value = "循环圈数"
-            .Cells(1, 2).Value = "容量/Ah"
-            .Cells(1, 3).Value = "能量/Wh"
-            .Cells(1, 4).Value = "容量保持率"
-            .Cells(1, 5).Value = "能量保持率"
-        End With
-        
-        '获取基准值并填充数据
-        FillBasicDataWithBaseValues basicDataTable, batteryZPData, cycleConfig
-        
-        'DCIR数据表
-        Set dcirTable = ws.ListObjects.Add(xlSrcRange, dcirRange, , xlYes)
-        dcirTable.Name = "DCIR_" & i
-        tableCollection.Add dcirTable, "DCIR_" & i
-        
-        '设置DCIR表列标题
-        With dcirTable.HeaderRowRange
-            .Cells(1, 1).Value = "90%"
-            .Cells(1, 2).Value = "50%"
-            .Cells(1, 3).Value = "10%"
-        End With
-        
-        
-        'DCIR Rise数据表
-        Set dcirRiseTable = ws.ListObjects.Add(xlSrcRange, dcirRiseRange, , xlYes)
-        dcirRiseTable.Name = "DCIRRise_" & i
-        tableCollection.Add dcirRiseTable, "DCIRRise_" & i
-        
-        '设置DCIR Rise表列标题
-        With dcirRiseTable.HeaderRowRange
-            .Cells(1, 1).Value = "90%"
-            .Cells(1, 2).Value = "50%"
-            .Cells(1, 3).Value = "10%"
-        End With
-        
-        
-        '应用表头样式
-        Dim headerRange As Range
-        Set headerRange = ws.Range(ws.Cells(currentRow + 1, currentColumn), ws.Cells(currentRow + 1, currentColumn + 10))
-        With headerRange
-            .Font.Bold = True
-            .Interior.Color = RGB(31, 78, 120)
-            .Font.Color = RGB(255, 255, 255)
-            .Borders.LineStyle = xlContinuous
-            .HorizontalAlignment = xlCenter
-            .VerticalAlignment = xlCenter
-        End With
-        
-        '移动到下一个表格位置
-        currentRow = nextRow  '重置行号
-        currentColumn = currentColumn + COLUMN_GAP  '移动到下一列组
+        '更新行位置（移动到下一组）
+        currentRow = currentRow + GetLastTableRowCount(tableCollection) + 3
     Next i
     
-    '返回ListObject集合
     Set OutputZPData = tableCollection
     Exit Function
     
 ErrorHandler:
-    Debug.Print "OutputZPData error: " & Err.Description
+    LogError "OutputZPData", Err.Description
     Set OutputZPData = New Collection
 End Function
+
+'******************************************
+' 过程: ProcessBatteryData
+' 用途: 处理单个电池的数据并创建相应的表格
+'******************************************
+Private Sub ProcessBatteryData(ByVal ws As Worksheet, _
+                             ByVal rawData As Collection, _
+                             ByVal cycleConfig As Collection, _
+                             ByVal commonConfig As Collection, _
+                             ByVal batteryIndex As Long, _
+                             ByVal currentRow As Long, _
+                             ByVal currentColumn As Long, _
+                             ByRef tableCollection As Collection)
+    
+    On Error GoTo ErrorHandler
+    
+    '获取电池数据
+    Dim batteryZPData As Collection
+    Set batteryZPData = rawData(2)(batteryIndex)
+    
+    '创建表头
+    OutputTableHeader ws, currentRow, currentColumn, batteryIndex, batteryZPData, commonConfig
+    
+    '创建和填充基本数据表
+    Dim basicDataTable As ListObject
+    Set basicDataTable = CreateBasicDataTable(ws, currentRow, currentColumn, batteryZPData, cycleConfig)
+    tableCollection.Add basicDataTable
+    
+    '创建和填充DCIR表
+    Dim dcirTable As ListObject
+    Set dcirTable = CreateDCIRTable(ws, currentRow, currentColumn, basicDataTable.ListRows.Count)
+    tableCollection.Add dcirTable
+    
+    '填充DCIR数据
+    FillDCIRData dcirTable, rawData(3)(batteryIndex), cycleConfig
+    
+    '创建和填充DCIR Rise表
+    Dim dcirRiseTable As ListObject
+    Set dcirRiseTable = CreateDCIRRiseTable(ws, currentRow, currentColumn, basicDataTable.ListRows.Count)
+    tableCollection.Add dcirRiseTable
+    
+    Exit Sub
+    
+ErrorHandler:
+    LogError "ProcessBatteryData", Err.Description
+End Sub
+
+'******************************************
+' 函数: CreateBasicDataTable
+' 用途: 创建和填充基本数据表
+'******************************************
+Private Function CreateBasicDataTable(ByVal ws As Worksheet, _
+                                    ByVal currentRow As Long, _
+                                    ByVal currentColumn As Long, _
+                                    ByVal batteryZPData As Collection, _
+                                    ByVal cycleConfig As Collection) As ListObject
+    
+    On Error GoTo ErrorHandler
+    
+    '设置基本数据列范围
+    Dim basicDataRange As Range
+    Set basicDataRange = ws.Range(ws.Cells(currentRow + 1, currentColumn), _
+                                ws.Cells(currentRow + 1, currentColumn + 4))
+    
+    '创建ListObject
+    Dim basicDataTable As ListObject
+    Set basicDataTable = ws.ListObjects.Add(xlSrcRange, basicDataRange, , xlYes)
+    
+    '设置列标题
+    With basicDataTable.HeaderRowRange
+        .Cells(1, 1).Value = "循环圈数"
+        .Cells(1, 2).Value = "容量/Ah"
+        .Cells(1, 3).Value = "能量/Wh"
+        .Cells(1, 4).Value = "容量保持率"
+        .Cells(1, 5).Value = "能量保持率"
+    End With
+    
+    '填充数据
+    FillBasicDataWithBaseValues basicDataTable, batteryZPData, cycleConfig
+    
+    Set CreateBasicDataTable = basicDataTable
+    Exit Function
+    
+ErrorHandler:
+    LogError "CreateBasicDataTable", Err.Description
+    Set CreateBasicDataTable = Nothing
+End Function
+
+'******************************************
+' 函数: CreateDCIRTable
+' 用途: 创建DCIR表
+'******************************************
+Private Function CreateDCIRTable(ByVal ws As Worksheet, _
+                               ByVal currentRow As Long, _
+                               ByVal currentColumn As Long, _
+                               ByVal rowCount As Long) As ListObject
+    
+    On Error GoTo ErrorHandler
+    
+    '设置DCIR列范围
+    Dim dcirRange As Range
+    Set dcirRange = ws.Range(ws.Cells(currentRow + 1, currentColumn + 5), _
+                            ws.Cells(currentRow + 1 + rowCount, currentColumn + 7))
+    
+    '创建ListObject
+    Dim dcirTable As ListObject
+    Set dcirTable = ws.ListObjects.Add(xlSrcRange, dcirRange, , xlYes)
+    
+    '设置列标题
+    With dcirTable.HeaderRowRange
+        .Cells(1, 1).Value = "90%"
+        .Cells(1, 2).Value = "50%"
+        .Cells(1, 3).Value = "10%"
+    End With
+    
+    Set CreateDCIRTable = dcirTable
+    Exit Function
+    
+ErrorHandler:
+    LogError "CreateDCIRTable", Err.Description
+    Set CreateDCIRTable = Nothing
+End Function
+
+'******************************************
+' 函数: CreateDCIRRiseTable
+' 用途: 创建DCIR Rise表
+'******************************************
+Private Function CreateDCIRRiseTable(ByVal ws As Worksheet, _
+                                   ByVal currentRow As Long, _
+                                   ByVal currentColumn As Long, _
+                                   ByVal rowCount As Long) As ListObject
+    
+    On Error GoTo ErrorHandler
+    
+    '设置DCIR Rise列范围
+    Dim dcirRiseRange As Range
+    Set dcirRiseRange = ws.Range(ws.Cells(currentRow + 1, currentColumn + 8), _
+                                ws.Cells(currentRow + 1 + rowCount, currentColumn + 10))
+    
+    '创建ListObject
+    Dim dcirRiseTable As ListObject
+    Set dcirRiseTable = ws.ListObjects.Add(xlSrcRange, dcirRiseRange, , xlYes)
+    
+    '设置列标题
+    With dcirRiseTable.HeaderRowRange
+        .Cells(1, 1).Value = "90%"
+        .Cells(1, 2).Value = "50%"
+        .Cells(1, 3).Value = "10%"
+    End With
+    
+    Set CreateDCIRRiseTable = dcirRiseTable
+    Exit Function
+    
+ErrorHandler:
+    LogError "CreateDCIRRiseTable", Err.Description
+    Set CreateDCIRRiseTable = Nothing
+End Function
+
+'******************************************
+' 函数: GetBatteryCount
+' 用途: 获取电池数量
+'******************************************
+Private Function GetBatteryCount(ByVal rawData As Collection) As Long
+    On Error Resume Next
+    GetBatteryCount = rawData(2).Count
+    If Err.Number <> 0 Then GetBatteryCount = 0
+End Function
+
+'******************************************
+' 函数: GetLastTableRowCount
+' 用途: 获取最后一个表格的行数
+'******************************************
+Private Function GetLastTableRowCount(ByVal tableCollection As Collection) As Long
+    On Error Resume Next
+    If tableCollection.Count > 0 Then
+        GetLastTableRowCount = tableCollection(tableCollection.Count).ListRows.Count
+    Else
+        GetLastTableRowCount = 0
+    End If
+End Function
+
+'******************************************
+' 过程: LogError
+' 用途: 记录错误信息
+'******************************************
+Private Sub LogError(ByVal functionName As String, ByVal errorDescription As String)
+    Debug.Print Now & " - " & functionName & " error: " & errorDescription
+End Sub
 
 '******************************************
 ' 函数: IsValidData
@@ -394,4 +501,486 @@ Private Function CalculateZPResults(ByVal cycleInterval As Long, _
     End If
     
     Set CalculateZPResults = results
+End Function
+
+'******************************************
+' 过程: FillDCIRData
+' 用途: 填充DCIR数据到表格
+'******************************************
+Private Sub FillDCIRData(ByVal dcirTable As ListObject, _
+                        ByVal batteryZPDCRData As Collection, _
+                        ByVal cycleConfig As Collection)
+    
+    On Error GoTo ErrorHandler
+    
+    '验证输入参数
+    If Not ValidateDCIRInputs(dcirTable, batteryZPDCRData, cycleConfig) Then
+        Exit Sub
+    End If
+    
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.Calculation = xlCalculationManual
+    
+    '计算DCIR数据
+    Dim dcirRiseData As Collection
+    Set dcirRiseData = CalculateZPDCRResults(batteryZPDCRData, cycleConfig)
+    
+    '预处理数据范围
+    Dim dataRange As Range
+    Set dataRange = dcirTable.DataBodyRange
+    
+    '一次性获取所有数据
+    Dim tableData() As Variant
+    ReDim tableData(1 To dataRange.Rows.Count, 1 To 3)
+    
+    '填充数据数组
+    FillDCIRDataArray tableData, dcirRiseData
+    
+    '一次性写入表格
+    If Not IsArrayEmpty(tableData) Then
+        dataRange.Value = tableData
+        FormatDCIRData dataRange
+    End If
+    
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    Application.Calculation = xlCalculationAutomatic
+    
+    Exit Sub
+    
+ErrorHandler:
+    LogError "FillDCIRData", Err.Description
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    Application.Calculation = xlCalculationAutomatic
+End Sub
+
+'******************************************
+' 函数: ValidateDCIRInputs
+' 用途: 验证DCIR填充的输入参数
+'******************************************
+Private Function ValidateDCIRInputs(ByVal dcirTable As ListObject, _
+                                  ByVal batteryZPDCRData As Collection, _
+                                  ByVal cycleConfig As Collection) As Boolean
+    
+    On Error GoTo ErrorHandler
+    
+    If dcirTable Is Nothing Then Exit Function
+    If batteryZPDCRData Is Nothing Then Exit Function
+    If cycleConfig Is Nothing Then Exit Function
+    If dcirTable.DataBodyRange Is Nothing Then Exit Function
+    If dcirTable.DataBodyRange.Rows.Count = 0 Then Exit Function
+    
+    ValidateDCIRInputs = True
+    Exit Function
+    
+ErrorHandler:
+    ValidateDCIRInputs = False
+End Function
+
+'******************************************
+' 过程: FillDCIRDataArray
+' 用途: 填充DCIR数据到数组
+'******************************************
+Private Sub FillDCIRDataArray(ByRef tableData() As Variant, _
+                            ByVal dcirRiseData As Collection)
+    
+    On Error GoTo ErrorHandler
+    
+    If dcirRiseData Is Nothing Then Exit Sub
+    
+    Dim socIndex As Long
+    Dim rowIndex As Long
+    Dim dcrValues As Collection
+    
+    '遍历每个SOC点的数据
+    For socIndex = 1 To 3
+        If socIndex <= dcirRiseData.Count Then
+            Set dcrValues = dcirRiseData(socIndex)
+            
+            '填充当前SOC点的所有值
+            If Not dcrValues Is Nothing Then
+                For rowIndex = 1 To UBound(tableData, 1)
+                    If rowIndex <= dcrValues.Count Then
+                        tableData(rowIndex, socIndex) = Format(dcrValues(rowIndex), "0.000000")
+                    End If
+                Next rowIndex
+            End If
+        End If
+    Next socIndex
+    
+    Exit Sub
+    
+ErrorHandler:
+    LogError "FillDCIRDataArray", Err.Description
+End Sub
+
+'******************************************
+' 过程: FormatDCIRData
+' 用途: 格式化DCIR数据
+'******************************************
+Private Sub FormatDCIRData(ByVal dataRange As Range)
+    On Error GoTo ErrorHandler
+    
+    With dataRange
+        .NumberFormat = "0.000000"
+        .HorizontalAlignment = xlCenter
+    End With
+    
+    Exit Sub
+    
+ErrorHandler:
+    LogError "FormatDCIRData", Err.Description
+End Sub
+
+'******************************************
+' 函数: IsArrayEmpty
+' 用途: 检查数组是否为空
+'******************************************
+Private Function IsArrayEmpty(ByRef arr As Variant) As Boolean
+    On Error GoTo ErrorHandler
+    
+    Dim i As Long, j As Long
+    
+    For i = LBound(arr, 1) To UBound(arr, 1)
+        For j = LBound(arr, 2) To UBound(arr, 2)
+            If Not IsEmpty(arr(i, j)) Then
+                IsArrayEmpty = False
+                Exit Function
+            End If
+        Next j
+    Next i
+    
+    IsArrayEmpty = True
+    Exit Function
+    
+ErrorHandler:
+    IsArrayEmpty = True
+End Function
+
+'******************************************
+' 函数: CalculateZPDCRResults
+' 用途: 计算电池的DCR数据
+'******************************************
+Private Function CalculateZPDCRResults(ByVal batteryZPDCRData As Collection, _
+                                     ByVal cycleConfig As Collection) As Collection
+    
+    On Error GoTo ErrorHandler
+    
+    Dim results As New Collection
+    
+    '获取放电时间和大中检配置
+    Dim targetDischargeTime As String
+    targetDischargeTime = GetTargetDischargeTime(cycleConfig)
+    
+    '处理每个SOC点
+    Dim socIndex As Long
+    For socIndex = 1 To 3
+        '获取工步号
+        Dim stepNumbers As Collection
+        Set stepNumbers = GetStepNumbers(cycleConfig, socIndex)
+        
+        '检查工步号是否有效
+        If Not IsValidStepNumbers(stepNumbers) Then
+            results.Add New Collection
+            GoTo NextSOC
+        End If
+        
+        '计算当前SOC点的DCR值
+        Dim dcrResult As Collection
+        Set dcrResult = CalculateSingleSOCDCR(batteryZPDCRData, stepNumbers, targetDischargeTime)
+        results.Add dcrResult
+        
+NextSOC:
+    Next socIndex
+    
+    Set CalculateZPDCRResults = results
+    Exit Function
+    
+ErrorHandler:
+    LogError "CalculateZPDCRResults", Err.Description
+    Set CalculateZPDCRResults = New Collection
+End Function
+
+'******************************************
+' 函数: GetTargetDischargeTime
+' 用途: 获取目标放电时间
+'******************************************
+Private Function GetTargetDischargeTime(ByVal cycleConfig As Collection) As String
+    Dim dischargeTime As String
+    dischargeTime = CStr(cycleConfig(FIELD_DISCHARGE_TIME))
+    
+    Select Case dischargeTime
+        Case "30s"
+            GetTargetDischargeTime = "0:00:30.000"
+        Case "10s"
+            GetTargetDischargeTime = "0:00:10.000"
+        Case Else
+            GetTargetDischargeTime = "0:00:30.000"  '默认30秒
+    End Select
+End Function
+
+'******************************************
+' 函数: GetStepNumbers
+' 用途: 获取指定SOC点的工步号
+'******************************************
+Private Function GetStepNumbers(ByVal cycleConfig As Collection, ByVal socIndex As Long) As Collection
+    Dim stepNumbers As New Collection
+    
+    Select Case socIndex
+        Case 1 '90% SOC
+            stepNumbers.Add CLng(cycleConfig(FIELD_SOC_90_MEASURE_STEP_NO)), "measureStepNo"
+            stepNumbers.Add CLng(cycleConfig(FIELD_SOC_90_DISCHARGE_STEP_NO)), "dischargeStepNo"
+        Case 2 '50% SOC
+            stepNumbers.Add CLng(cycleConfig(FIELD_SOC_50_MEASURE_STEP_NO)), "measureStepNo"
+            stepNumbers.Add CLng(cycleConfig(FIELD_SOC_50_DISCHARGE_STEP_NO)), "dischargeStepNo"
+        Case 3 '10% SOC
+            stepNumbers.Add CLng(cycleConfig(FIELD_SOC_10_MEASURE_STEP_NO)), "measureStepNo"
+            stepNumbers.Add CLng(cycleConfig(FIELD_SOC_10_DISCHARGE_STEP_NO)), "dischargeStepNo"
+    End Select
+    
+    Set GetStepNumbers = stepNumbers
+End Function
+
+'******************************************
+' 函数: IsValidStepNumbers
+' 用途: 检查工步号是否有效
+'******************************************
+Private Function IsValidStepNumbers(ByVal stepNumbers As Collection) As Boolean
+    IsValidStepNumbers = (stepNumbers("measureStepNo") <> 0 And stepNumbers("dischargeStepNo") <> 0)
+End Function
+
+'******************************************
+' 函数: CalculateSingleSOCDCR
+' 用途: 计算单个SOC点的DCR值
+'******************************************
+Private Function CalculateSingleSOCDCR(ByVal batteryZPDCRData As Collection, _
+                                     ByVal stepNumbers As Collection, _
+                                     ByVal targetDischargeTime As String) As Collection
+    
+    Dim measureVoltages As Collection
+    Set measureVoltages = GetMeasureVoltages(batteryZPDCRData, stepNumbers)
+    
+    Dim dischargeVoltages As Collection
+    Set dischargeVoltages = GetDischargeVoltages(batteryZPDCRData, stepNumbers, targetDischargeTime)
+    
+    Dim dischargeCurrents As Collection
+    Set dischargeCurrents = GetDischargeCurrents(batteryZPDCRData, stepNumbers)
+    
+    '计算DCR值
+    Dim dcrResult As New Collection
+    Dim i As Long
+    For i = 1 To measureVoltages.Count
+        dcrResult.Add ((measureVoltages(i) - dischargeVoltages(i)) / Abs(dischargeCurrents(i))) * 1000
+    Next i
+    
+    Set CalculateSingleSOCDCR = dcrResult
+End Function
+
+'******************************************
+' 函数: GetMeasureVoltages
+' 用途: 获取搁置工步的电压值
+'******************************************
+Private Function GetMeasureVoltages(ByVal batteryZPDCRData As Collection, _
+                                  ByVal stepNumbers As Collection) As Collection
+    
+    On Error GoTo ErrorHandler
+    
+    '验证输入参数
+    If batteryZPDCRData Is Nothing Or batteryZPDCRData.Count = 0 Then
+        Set GetMeasureVoltages = New Collection
+        Exit Function
+    End If
+    
+    '预分配数组大小（预估最大可能的电压值数量）
+    Dim maxPossibleCount As Long
+    maxPossibleCount = batteryZPDCRData.Count \ 2  '假设最多有一半的数据是测量点
+    
+    Dim voltageArray() As Double
+    ReDim voltageArray(1 To maxPossibleCount)
+    
+    Dim measureStepNo As Long
+    Dim dischargeStepNo As Long
+    measureStepNo = stepNumbers("measureStepNo")
+    dischargeStepNo = stepNumbers("dischargeStepNo")
+    
+    '使用数组存储中间结果
+    Dim lastVoltage As Double
+    Dim voltageCount As Long
+    voltageCount = 0
+    
+    Dim i As Long
+    Dim currentStepNo As Long
+    Dim prevStepNo As Long
+    
+    For i = 1 To batteryZPDCRData.Count
+        With batteryZPDCRData(i)
+            currentStepNo = .StepNo
+            
+            If currentStepNo = measureStepNo Then
+                lastVoltage = .Voltage
+            ElseIf currentStepNo = dischargeStepNo And i > 1 Then
+                prevStepNo = batteryZPDCRData(i - 1).StepNo
+                If prevStepNo = measureStepNo Then
+                    voltageCount = voltageCount + 1
+                    voltageArray(voltageCount) = lastVoltage
+                End If
+            End If
+        End With
+    Next i
+    
+    '将有效数据转换为Collection
+    Dim results As New Collection
+    If voltageCount > 0 Then
+        For i = 1 To voltageCount
+            results.Add voltageArray(i)
+        Next i
+    End If
+    
+    Set GetMeasureVoltages = results
+    Exit Function
+    
+ErrorHandler:
+    LogError "GetMeasureVoltages", Err.Description
+    Set GetMeasureVoltages = New Collection
+End Function
+
+'******************************************
+' 函数: GetDischargeVoltages
+' 用途: 获取放电工步的电压值
+'******************************************
+Private Function GetDischargeVoltages(ByVal batteryZPDCRData As Collection, _
+                                    ByVal stepNumbers As Collection, _
+                                    ByVal targetDischargeTime As String) As Collection
+    
+    On Error GoTo ErrorHandler
+    
+    '验证输入参数
+    If batteryZPDCRData Is Nothing Or batteryZPDCRData.Count = 0 Then
+        Set GetDischargeVoltages = New Collection
+        Exit Function
+    End If
+    
+    '预分配数组大小（预估最大可能的电压值数量）
+    Dim maxPossibleCount As Long
+    maxPossibleCount = batteryZPDCRData.Count \ 2  '假设最多有一半的数据是放电点
+    
+    Dim voltageArray() As Double
+    ReDim voltageArray(1 To maxPossibleCount)
+    
+    '缓存工步号
+    Dim dischargeStepNo As Long
+    dischargeStepNo = stepNumbers("dischargeStepNo")
+    
+    '使用数组存储中间结果
+    Dim voltageCount As Long
+    voltageCount = 0
+    
+    Dim i As Long
+    Dim currentStepNo As Long
+    
+    For i = 1 To batteryZPDCRData.Count
+        With batteryZPDCRData(i)
+            currentStepNo = .StepNo
+            
+            If currentStepNo = dischargeStepNo And .StepTime = targetDischargeTime Then
+                voltageCount = voltageCount + 1
+                voltageArray(voltageCount) = .Voltage
+            End If
+        End With
+    Next i
+    
+    '将有效数据转换为Collection
+    Dim results As New Collection
+    If voltageCount > 0 Then
+        For i = 1 To voltageCount
+            results.Add voltageArray(i)
+        Next i
+    End If
+    
+    Set GetDischargeVoltages = results
+    Exit Function
+    
+ErrorHandler:
+    LogError "GetDischargeVoltages", Err.Description
+    Set GetDischargeVoltages = New Collection
+End Function
+
+'******************************************
+' 函数: GetDischargeCurrents
+' 用途: 获取放电工步的电流值
+'******************************************
+Private Function GetDischargeCurrents(ByVal batteryZPDCRData As Collection, _
+                                    ByVal stepNumbers As Collection) As Collection
+    
+    On Error GoTo ErrorHandler
+    
+    '验证输入参数
+    If batteryZPDCRData Is Nothing Or batteryZPDCRData.Count = 0 Then
+        Set GetDischargeCurrents = New Collection
+        Exit Function
+    End If
+    
+    '预分配数组大小（预估最大可能的电流值数量）
+    Dim maxPossibleCount As Long
+    maxPossibleCount = batteryZPDCRData.Count \ 2  '假设最多有一半的数据是放电点
+    
+    Dim currentArray() As Double
+    ReDim currentArray(1 To maxPossibleCount)
+    
+    '缓存工步号
+    Dim dischargeStepNo As Long
+    dischargeStepNo = stepNumbers("dischargeStepNo")
+    
+    '使用数组存储中间结果
+    Dim currentCount As Long
+    currentCount = 0
+    
+    Dim i As Long
+    Dim currentStepNo As Long
+    Dim totalCurrent As Double
+    Dim count As Long
+    Dim isInDischargeStep As Boolean
+    
+    For i = 1 To batteryZPDCRData.Count
+        With batteryZPDCRData(i)
+            currentStepNo = .StepNo
+            
+            If currentStepNo = dischargeStepNo Then
+                totalCurrent = totalCurrent + Abs(.Current)
+                count = count + 1
+                isInDischargeStep = True
+            ElseIf isInDischargeStep Then
+                If count > 0 Then
+                    currentCount = currentCount + 1
+                    currentArray(currentCount) = totalCurrent / count
+                End If
+                totalCurrent = 0
+                count = 0
+                isInDischargeStep = False
+            End If
+        End With
+    Next i
+    
+    '处理最后一次放电工步
+    If isInDischargeStep And count > 0 Then
+        currentCount = currentCount + 1
+        currentArray(currentCount) = totalCurrent / count
+    End If
+    
+    '将有效数据转换为Collection
+    Dim results As New Collection
+    If currentCount > 0 Then
+        For i = 1 To currentCount
+            results.Add currentArray(i)
+        Next i
+    End If
+    
+    Set GetDischargeCurrents = results
+    Exit Function
+    
+ErrorHandler:
+    LogError "GetDischargeCurrents", Err.Description
+    Set GetDischargeCurrents = New Collection
 End Function
