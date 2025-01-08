@@ -12,12 +12,12 @@ Option Explicit
 '   - rawData: 原始数据集合
 '   - cycleConfig: 循环配置
 '   - commonConfig: 公共配置
-' 返回: Boolean值，表示数据输出是否成功
+' 返回: Collection，包含所有创建的ListObject表格对象
 '******************************************
 Public Function OutputCycleData(ByVal ws As Worksheet, _
                               ByVal rawData As Collection, _
                               ByVal cycleConfig As Collection, _
-                              ByVal commonConfig As Collection) As Boolean
+                              ByVal commonConfig As Collection) As Collection
     
     On Error GoTo ErrorHandler
     
@@ -28,11 +28,10 @@ Public Function OutputCycleData(ByVal ws As Worksheet, _
     Const COLUMN_GAP As Long = 7       '表格间隔
     
     '变量声明
-    Dim i As Long, j As Long           '循环计数器
+    Dim tableCollection As New Collection  '存储所有创建的表格对象
     Dim currentRow As Long             '当前行号
     Dim currentColumn As Long          '当前列号
     Dim groupData As Collection        '单个电池的数据集合
-    Dim cycleData As CBatteryCycleRaw  '单条循环数据
     Dim batteryNames As Collection     '电池名称集合
     
     '初始化
@@ -42,11 +41,16 @@ Public Function OutputCycleData(ByVal ws As Worksheet, _
     
     '检查数据有效性
     If rawData Is Nothing Or rawData.Count = 0 Then
-        OutputCycleData = False
+        Set OutputCycleData = New Collection
         Exit Function
     End If
     
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.Calculation = xlCalculationManual
+    
     '遍历每组数据(每个电池)
+    Dim i As Long
     For i = 1 To rawData(1).Count
         Set groupData = rawData(1)(i)
         
@@ -60,17 +64,26 @@ Public Function OutputCycleData(ByVal ws As Worksheet, _
         '填充数据
         FillCycleData cycleListObj, groupData, currentRow, currentColumn, cycleConfig
         
+        '添加到表格集合
+        tableCollection.Add cycleListObj
+        
         '移动到下一个表格位置
         currentColumn = currentColumn + COLUMN_GAP
     Next i
     
-    '设置成功标志
-    OutputCycleData = True
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    Application.Calculation = xlCalculationAutomatic
+    
+    Set OutputCycleData = tableCollection
     Exit Function
     
 ErrorHandler:
-    OutputCycleData = False
     Debug.Print "OutputCycleData error: " & Err.Description
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    Application.Calculation = xlCalculationAutomatic
+    Set OutputCycleData = New Collection
 End Function
 
 '******************************************

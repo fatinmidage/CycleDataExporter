@@ -173,8 +173,12 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     Dim nextRow As Long
     nextRow = SetupWorksheetStyle(ws, commonConfig, reportName)
     
+    '创建集合对象,用于保存循环数据的ListObject
+    Dim cycleDataTables As Collection
+    
     '添加循环数据
-    If Not OutputCycleData(ws, rawData, cycleConfig, commonConfig) Then
+    Set cycleDataTables = OutputCycleData(ws, rawData, cycleConfig, commonConfig)
+    If cycleDataTables.Count = 0 Then
         MsgBox "输出循环数据失败！", vbExclamation
         OutputReport = False
         Exit Function
@@ -191,7 +195,9 @@ Private Function OutputReport(ByVal reportIndex As Long, _
 
     '更新nextRow（使用最后一个表格的最后一行）
     Dim lastTable As ListObject
-    Set lastTable = zpTables(zpTables.Count)
+    Dim lastTableCollection As Collection
+    Set lastTableCollection = zpTables(zpTables.Count)
+    Set lastTable = lastTableCollection(lastTableCollection.Count)
     nextRow = lastTable.Range.Row + lastTable.Range.Rows.Count + 2
     
     '设置函数返回值为成功

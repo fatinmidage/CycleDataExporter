@@ -28,57 +28,74 @@ Public Function OutputZPData(ByVal ws As Worksheet, _
     
     On Error GoTo ErrorHandler
     
-    '变量声明
-    Dim tableCollection As New Collection
-    Dim currentRow As Long
-    Dim currentColumn As Long
-    Dim batteryCount As Long
-    
-    '初始化
-    currentRow = nextRow
-    currentColumn = START_COLUMN
-    
-    '验证数据有效性
+    '验证输入参数
     If Not IsValidData(rawData) Then
-        Set OutputZPData = tableCollection
+        Set OutputZPData = New Collection
         Exit Function
     End If
     
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.Calculation = xlCalculationManual
+    
+    '创建表格集合
+    Dim tableCollection As New Collection
+    Dim currentRow As Long
+    currentRow = nextRow
+    
     '获取电池数量
+    Dim batteryCount As Long
     batteryCount = GetBatteryCount(rawData)
     
     '遍历每个电池的中检数据
     Dim i As Long
     For i = 1 To batteryCount
         '处理单个电池的数据
-        ProcessBatteryData ws, rawData, cycleConfig, commonConfig, i, currentRow, currentColumn, tableCollection
+        Dim batteryTables As Collection
+        Set batteryTables = ProcessBatteryData(ws, rawData, cycleConfig, commonConfig, i, currentRow, START_COLUMN)
+        
+        '将电池表格集合添加到总集合
+        If Not batteryTables Is Nothing Then
+            tableCollection.Add batteryTables
+        End If
         
         '更新行位置（移动到下一组）
-        currentRow = currentRow + GetLastTableRowCount(tableCollection) + 3
+        If Not batteryTables Is Nothing And batteryTables.Count > 0 Then
+            currentRow = currentRow + batteryTables(batteryTables.Count).ListRows.Count + 3
+        End If
     Next i
+    
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    Application.Calculation = xlCalculationAutomatic
     
     Set OutputZPData = tableCollection
     Exit Function
     
 ErrorHandler:
     LogError "OutputZPData", Err.Description
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    Application.Calculation = xlCalculationAutomatic
     Set OutputZPData = New Collection
 End Function
 
 '******************************************
-' 过程: ProcessBatteryData
+' 函数: ProcessBatteryData
 ' 用途: 处理单个电池的数据并创建相应的表格
+' 返回: Collection，包含创建的所有表格对象
 '******************************************
-Private Sub ProcessBatteryData(ByVal ws As Worksheet, _
-                             ByVal rawData As Collection, _
-                             ByVal cycleConfig As Collection, _
-                             ByVal commonConfig As Collection, _
-                             ByVal batteryIndex As Long, _
-                             ByVal currentRow As Long, _
-                             ByVal currentColumn As Long, _
-                             ByRef tableCollection As Collection)
+Private Function ProcessBatteryData(ByVal ws As Worksheet, _
+                                  ByVal rawData As Collection, _
+                                  ByVal cycleConfig As Collection, _
+                                  ByVal commonConfig As Collection, _
+                                  ByVal batteryIndex As Long, _
+                                  ByVal currentRow As Long, _
+                                  ByVal currentColumn As Long) As Collection
     
     On Error GoTo ErrorHandler
+    
+    Dim tableCollection As New Collection
     
     '获取电池数据
     Dim batteryZPData As Collection
@@ -105,11 +122,13 @@ Private Sub ProcessBatteryData(ByVal ws As Worksheet, _
     Set dcirRiseTable = CreateDCIRRiseTable(ws, currentRow, currentColumn, basicDataTable.ListRows.Count)
     tableCollection.Add dcirRiseTable
     
-    Exit Sub
+    Set ProcessBatteryData = tableCollection
+    Exit Function
     
 ErrorHandler:
     LogError "ProcessBatteryData", Err.Description
-End Sub
+    Set ProcessBatteryData = New Collection
+End Function
 
 '******************************************
 ' 函数: CreateBasicDataTable
