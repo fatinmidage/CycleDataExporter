@@ -119,7 +119,7 @@ Private Function ProcessBatteryData(ByVal ws As Worksheet, _
     
     '创建和填充DCIR Rise表
     Dim dcirRiseTable As ListObject
-    Set dcirRiseTable = CreateDCIRRiseTable(ws, currentRow, currentColumn, basicDataTable.ListRows.Count)
+    Set dcirRiseTable = CreateDCIRRiseTable(ws, currentRow, currentColumn, basicDataTable.ListRows.Count, dcirTable)
     tableCollection.Add dcirRiseTable
     
     Set ProcessBatteryData = tableCollection
@@ -213,7 +213,8 @@ End Function
 Private Function CreateDCIRRiseTable(ByVal ws As Worksheet, _
                                    ByVal currentRow As Long, _
                                    ByVal currentColumn As Long, _
-                                   ByVal rowCount As Long) As ListObject
+                                   ByVal rowCount As Long, _
+                                   ByVal dcirTable As ListObject) As ListObject
     
     On Error GoTo ErrorHandler
     
@@ -231,6 +232,34 @@ Private Function CreateDCIRRiseTable(ByVal ws As Worksheet, _
         .Cells(1, 1).Value = "90%"
         .Cells(1, 2).Value = "50%"
         .Cells(1, 3).Value = "10%"
+    End With
+    
+    '计算并填充DCR增长率
+    If Not dcirTable Is Nothing And dcirTable.ListRows.Count > 0 Then
+        Dim i As Long, j As Long
+        Dim baseValue As Double
+        
+        '遍历每一列（90%、50%、10%）
+        For j = 1 To 3
+            '获取基准值（第一行的值）
+            baseValue = CDbl(dcirTable.ListColumns(j).Range(2).Value)
+            
+            '计算每一行的增长率
+            For i = 1 To dcirTable.ListRows.Count
+                If baseValue > 0 Then
+                    Dim currentValue As Double
+                    currentValue = CDbl(dcirTable.ListColumns(j).Range(i + 1).Value)
+                    if currentValue > 0 Then
+                        dcirRiseTable.ListColumns(j).Range(i + 1).Value = Format((currentValue - baseValue) / baseValue, "0.00%")
+                    End If
+                End If
+            Next i
+        Next j
+    End If
+    
+    '设置格式
+    With dcirRiseTable.DataBodyRange
+        .HorizontalAlignment = xlCenter
     End With
     
     Set CreateDCIRRiseTable = dcirRiseTable
