@@ -1,24 +1,30 @@
 '******************************************
 ' 模块: ZPDataModule
 ' 用途: 处理和输出中检数据相关的功能
+' 说明: 本模块主要负责处理电池中检数据的计算和输出，
+'      包括容量、能量、DCIR和DCIR Rise等数据的处理
 '******************************************
 Option Explicit
 
 '常量定义
-Private Const START_COLUMN As Long = 3     '起始列号
-Private Const TABLE_WIDTH As Long = 11     '表格宽度（循环圈数到DC-IR Rise）
-Private Const COLUMN_GAP As Long = 14      '表格间隔
+Private Const START_COLUMN As Long = 3     '起始列号（基本数据表的起始列）
+Private Const TABLE_WIDTH As Long = 11     '表格宽度（从循环圈数到DC-IR Rise的总列数）
+Private Const COLUMN_GAP As Long = 14      '表格间隔（不同电池数据表之间的列间距）
 
 '******************************************
 ' 函数: OutputZPData
 ' 用途: 输出中检数据到工作表
 ' 参数: 
 '   - ws: 目标工作表
-'   - rawData: 原始数据集合
-'   - cycleConfig: 循环配置
-'   - commonConfig: 公共配置
+'   - rawData: 原始数据集合，包含容量和DCIR数据
+'   - cycleConfig: 循环配置，包含中检间隔、计算方法等
+'   - commonConfig: 公共配置，包含电池名称等信息
 '   - nextRow: 开始输出的行号
 ' 返回: Collection，包含所有创建的ListObject表格对象
+' 说明: 此函数是中检数据输出的主入口，会为每个电池创建三个表格：
+'      1. 基本数据表（容量、能量等）
+'      2. DCIR表（不同SOC点的DCIR值）
+'      3. DCIR Rise表（DCIR的增长率）
 '******************************************
 Public Function OutputZPData(ByVal ws As Worksheet, _
                            ByVal rawData As Collection, _
@@ -83,7 +89,16 @@ End Function
 '******************************************
 ' 函数: ProcessBatteryData
 ' 用途: 处理单个电池的数据并创建相应的表格
+' 参数:
+'   - ws: 工作表对象
+'   - rawData: 原始数据集合
+'   - cycleConfig: 循环配置
+'   - commonConfig: 公共配置
+'   - batteryIndex: 电池序号
+'   - currentRow: 当前行号
+'   - currentColumn: 当前列号
 ' 返回: Collection，包含创建的所有表格对象
+' 说明: 此函数为单个电池创建三个相关的表格，并进行数据填充
 '******************************************
 Private Function ProcessBatteryData(ByVal ws As Worksheet, _
                                   ByVal rawData As Collection, _
@@ -208,7 +223,17 @@ End Function
 
 '******************************************
 ' 函数: CreateDCIRRiseTable
-' 用途: 创建DCIR Rise表
+' 用途: 创建DCIR Rise表并计算增长率
+' 参数:
+'   - ws: 工作表对象
+'   - currentRow: 当前行号
+'   - currentColumn: 当前列号
+'   - rowCount: 行数
+'   - dcirTable: DCIR表对象，用于计算增长率
+' 返回: ListObject，创建的DCIR Rise表格对象
+' 说明: 此函数创建DCIR Rise表格并计算DCR的增长率
+'      增长率计算公式：(当前值 - 基准值) / 基准值 * 100%
+'      基准值为第一次测量的DCR值
 '******************************************
 Private Function CreateDCIRRiseTable(ByVal ws As Worksheet, _
                                    ByVal currentRow As Long, _
@@ -710,6 +735,16 @@ End Function
 '******************************************
 ' 函数: CalculateZPDCRResults
 ' 用途: 计算电池的DCR数据
+' 参数:
+'   - batteryZPDCRData: 电池DCR原始数据
+'   - cycleConfig: 循环配置，包含工步号等信息
+' 返回: Collection，包含计算后的DCR结果
+' 说明: 此函数处理三个SOC点（90%、50%、10%）的DCR计算
+'      每个SOC点的计算包括：
+'      1. 获取搁置电压
+'      2. 获取放电电压
+'      3. 获取放电电流
+'      4. 计算DCR值：(搁置电压 - 放电电压) / |放电电流| * 1000
 '******************************************
 Private Function CalculateZPDCRResults(ByVal batteryZPDCRData As Collection, _
                                      ByVal cycleConfig As Collection) As Collection
@@ -829,6 +864,12 @@ End Function
 '******************************************
 ' 函数: GetMeasureVoltages
 ' 用途: 获取搁置工步的电压值
+' 参数:
+'   - batteryZPDCRData: 电池DCR数据
+'   - stepNumbers: 工步号集合
+' 返回: Collection，包含所有搁置电压值
+' 说明: 此函数获取搁置工步的最后一个电压值，
+'      这个电压值将用于计算DCR
 '******************************************
 Private Function GetMeasureVoltages(ByVal batteryZPDCRData As Collection, _
                                   ByVal stepNumbers As Collection) As Collection
@@ -897,6 +938,13 @@ End Function
 '******************************************
 ' 函数: GetDischargeVoltages
 ' 用途: 获取放电工步的电压值
+' 参数:
+'   - batteryZPDCRData: 电池DCR数据
+'   - stepNumbers: 工步号集合
+'   - targetDischargeTime: 目标放电时间点
+' 返回: Collection，包含所有放电电压值
+' 说明: 此函数获取放电工步指定时间点的电压值，
+'      默认获取30s或10s时的电压值
 '******************************************
 Private Function GetDischargeVoltages(ByVal batteryZPDCRData As Collection, _
                                     ByVal stepNumbers As Collection, _
@@ -958,6 +1006,12 @@ End Function
 '******************************************
 ' 函数: GetDischargeCurrents
 ' 用途: 获取放电工步的电流值
+' 参数:
+'   - batteryZPDCRData: 电池DCR数据
+'   - stepNumbers: 工步号集合
+' 返回: Collection，包含所有放电电流值
+' 说明: 此函数计算放电工步的平均电流值
+'      通过累加放电工步中的所有电流值并取平均值
 '******************************************
 Private Function GetDischargeCurrents(ByVal batteryZPDCRData As Collection, _
                                     ByVal stepNumbers As Collection) As Collection

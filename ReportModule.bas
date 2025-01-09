@@ -167,6 +167,10 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     Else
         '如果工作表已存在，清空内容
         ws.Cells.Clear
+    Dim chartObj As ChartObject
+    For Each chartObj In ws.ChartObjects
+        chartObj.Delete
+    Next chartObj
     End If
     
     '设置工作表样式和内容
@@ -198,8 +202,12 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     Dim lastTableCollection As Collection
     Set lastTableCollection = zpTables(zpTables.Count)
     Set lastTable = lastTableCollection(lastTableCollection.Count)
-    nextRow = lastTable.Range.Row + lastTable.Range.Rows.Count + 2
+    nextRow = lastTable.Range.Row + lastTable.Range.Rows.Count + 1
     
+    '创建图表
+    Dim chartRow As Long
+    chartRow = CreateDataCharts(ws, nextRow, reportName, commonConfig, zpTables, cycleDataTables)
+
     '设置函数返回值为成功
     OutputReport = True
     
