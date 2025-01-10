@@ -110,9 +110,13 @@ Public Sub GenerateReport()
     '获取报告名称
     Dim reportName As String
     reportName = fileNames(fileNames.Count)
+
+    '获取电池名称
+    Dim batteryNames As Collection
+    Set batteryNames = GetBatteryNames(rawData, commonConfig)
     
     '输出报告
-    If OutputReport(reportIndex, reportName, rawData, cycleConfig, commonConfig) Then
+    If OutputReport(reportIndex, reportName, rawData, cycleConfig, commonConfig, batteryNames) Then
         MsgBox "报告生成完成！", vbInformation, "成功"
     End If
     Exit Sub
@@ -129,12 +133,14 @@ End Sub
 '       rawData - 原始数据集合
 '       cycleConfig - 循环配置集合
 '       commonConfig - 公共配置集合
+'       batteryNames - 电池名称集合
 '******************************************
 Private Function OutputReport(ByVal reportIndex As Long, _
                             ByVal reportName As String, _
                             ByVal rawData As Collection, _
                             ByVal cycleConfig As Collection, _
-                            ByVal commonConfig As Collection) As Boolean
+                            ByVal commonConfig As Collection, _
+                            ByVal batteryNames As Collection) As Boolean
     
     On Error GoTo ErrorHandler
     
@@ -167,10 +173,10 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     Else
         '如果工作表已存在，清空内容
         ws.Cells.Clear
-    Dim chartObj As ChartObject
-    For Each chartObj In ws.ChartObjects
-        chartObj.Delete
-    Next chartObj
+        Dim chartObj As ChartObject
+        For Each chartObj In ws.ChartObjects
+            chartObj.Delete
+        Next chartObj
     End If
     
     '设置工作表样式和内容
@@ -181,22 +187,22 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     Dim cycleDataTables As Collection
     
     '添加循环数据
-    Set cycleDataTables = OutputCycleData(ws, rawData, cycleConfig, commonConfig)
+    Set cycleDataTables = OutputCycleData(ws, rawData, cycleConfig, batteryNames)
     If cycleDataTables.Count = 0 Then
         MsgBox "输出循环数据失败！", vbExclamation
         OutputReport = False
         Exit Function
     End If
-
+    
     '添加中检数据
     Dim zpTables As Collection
-    Set zpTables = OutputZPData(ws, rawData, cycleConfig, commonConfig, nextRow)
+    Set zpTables = OutputZPData(ws, rawData, cycleConfig, batteryNames, nextRow)
     If zpTables.Count = 0 Then
         MsgBox "输出中检数据失败！", vbExclamation
         OutputReport = False
         Exit Function
     End If
-
+    
     '更新nextRow（使用最后一个表格的最后一行）
     Dim lastTable As ListObject
     Dim lastTableCollection As Collection
@@ -207,32 +213,17 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     '创建图表
     Dim chartRow As Long
     chartRow = CreateDataCharts(ws, nextRow, reportName, commonConfig, zpTables, cycleDataTables)
-
-    '设置函数返回值为成功
+    
+    '恢复引用样式
+    Application.ReferenceStyle = originalStyle
+    
     OutputReport = True
-    
-    '激活工作表
-    ws.Activate
-    
-    '定位到第一行第一列,方便用户查看报告开头
-    ws.Cells(1, 1).Select
-    
-    '恢复原始引用样式
-    If originalStyle <> Application.ReferenceStyle Then
-        Application.ReferenceStyle = originalStyle
-    End If
-    
-    '正常退出函数
     Exit Function
     
 ErrorHandler:
-    '确保在出错时也恢复引用样式
-    If originalStyle <> Application.ReferenceStyle Then
-        Application.ReferenceStyle = originalStyle
-    End If
-    
-    OutputReport = False
+    Application.ReferenceStyle = originalStyle
     MsgBox "输出报告时发生错误：" & vbNewLine & Err.Description, vbCritical, "错误"
+    OutputReport = False
 End Function
 
 '******************************************
@@ -410,6 +401,61 @@ Private Function ValidateRawData(ByVal rawData As Collection) As Boolean
     '...其他验证...
     
     ValidateRawData = True
+End Function
+
+'******************************************
+' 函数: GetBatteryNames
+' 用途: 从原始数据和公共配置中获取电池名字集合
+' 参数:
+'   - rawData: 原始数据集合
+'   - commonConfig: 公共配置集合
+' 返回: Collection，包含所有电池的名字
+'******************************************
+Private Function GetBatteryNames(ByVal rawData As Collection, _
+                               ByVal commonConfig As Collection) As Collection
+    
+    On Error GoTo ErrorHandler
+    
+    dim batteryCodeCollection as new collection
+    dim batteryInfo as  BatteryInfo
+    dim batteryCount as long
+    batteryCount = rawData(1).Count
+
+    for i = 1 to batteryCount
+        set batteryInfo = new BatteryInfo
+        batteryInfo.Name = Right(rawData(1)(i)(1).BatteryCode, 4)
+        batteryInfo.Index = i
+        batteryCodeCollection.Add batteryInfo
+    next i
+
+    dim batteryCodeNameCollection as collection
+    set batteryCodeNameCollection = commonConfig("BatteryNames")
+
+    '创建新的集合存储电池名称
+    Dim batteryNameCollection As New Collection
+    
+    '遍历batteryCodeCollection,将电池信息添加到batteryNameCollection
+    For Each batteryInfo In batteryCodeCollection
+        Dim found As Boolean
+        found = False
+        For j = 1 To batteryCodeNameCollection.Count
+            If batteryInfo.Index = batteryCodeNameCollection(j).Index Then
+                batteryNameCollection.Add batteryCodeNameCollection(j)
+                found = True
+                Exit For
+            End If
+        Next j
+        If Not found Then
+            batteryNameCollection.Add batteryInfo
+        End If
+    Next batteryInfo    
+    
+    Set GetBatteryNames = batteryNameCollection
+    Exit Function
+    
+ErrorHandler:
+    Debug.Print Now & " - GetBatteryNames error: " & Err.Description
+    Set GetBatteryNames = Nothing
 End Function
 
 

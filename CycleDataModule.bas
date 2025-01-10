@@ -11,13 +11,13 @@ Option Explicit
 '   - ws: 目标工作表
 '   - rawData: 原始数据集合
 '   - cycleConfig: 循环配置
-'   - commonConfig: 公共配置
+'   - batteryNames: 电池名称集合
 ' 返回: Collection，包含所有创建的ListObject表格对象
 '******************************************
 Public Function OutputCycleData(ByVal ws As Worksheet, _
                               ByVal rawData As Collection, _
                               ByVal cycleConfig As Collection, _
-                              ByVal commonConfig As Collection) As Collection
+                              ByVal batteryNames As Collection) As Collection
     
     On Error GoTo ErrorHandler
     
@@ -32,10 +32,8 @@ Public Function OutputCycleData(ByVal ws As Worksheet, _
     Dim currentRow As Long             '当前行号
     Dim currentColumn As Long          '当前列号
     Dim groupData As Collection        '单个电池的数据集合
-    Dim batteryNames As Collection     '电池名称集合
     
     '初始化
-    Set batteryNames = commonConfig("BatteryNames")
     currentRow = START_ROW
     currentColumn = START_COLUMN
     
@@ -54,8 +52,12 @@ Public Function OutputCycleData(ByVal ws As Worksheet, _
     For i = 1 To rawData(1).Count
         Set groupData = rawData(1)(i)
         
+        '获取对应的电池名称
+        Dim batteryName As String
+        batteryName = GetBatteryNameFromCollection(batteryNames, i)
+        
         '输出电池标题
-        OutputBatteryTitle ws, currentRow, currentColumn, groupData, batteryNames, i, TABLE_WIDTH
+        OutputBatteryTitle ws, currentRow, currentColumn, batteryName, TABLE_WIDTH
         
         '创建并设置数据表格
         Dim cycleListObj As ListObject
@@ -87,29 +89,43 @@ ErrorHandler:
 End Function
 
 '******************************************
+' 函数: GetBatteryNameFromCollection
+' 用途: 从电池名称集合中获取指定索引的电池名称
+' 参数:
+'   - batteryNames: 电池名称集合
+'   - index: 电池索引
+' 返回: String，电池名称
+'******************************************
+Private Function GetBatteryNameFromCollection(ByVal batteryNames As Collection, _
+                                           ByVal index As Long) As String
+    On Error Resume Next
+    
+    Dim batteryInfo As BatteryInfo
+    For Each batteryInfo In batteryNames
+        If batteryInfo.Index = index Then
+            GetBatteryNameFromCollection = batteryInfo.Name
+            Exit Function
+        End If
+    Next batteryInfo
+    
+    '如果没有找到匹配的名称，返回默认名称
+    GetBatteryNameFromCollection = "Battery-" & index
+End Function
+
+'******************************************
 ' 过程: OutputBatteryTitle
 ' 用途: 输出电池标题
 '******************************************
 Private Sub OutputBatteryTitle(ByVal ws As Worksheet, _
                              ByVal row As Long, _
                              ByVal column As Long, _
-                             ByVal groupData As Collection, _
-                             ByVal batteryNames As Collection, _
-                             ByVal batteryIndex As Long, _
+                             ByVal batteryName As String, _
                              ByVal mergeWidth As Long)
-    
-    '获取电池名称
-    Dim batteryName As String
-    On Error Resume Next
-    batteryName = batteryNames(CStr(batteryIndex))
-    If Err.Number <> 0 Then
-        batteryName = groupData(1).BatteryCode
-    End If
-    On Error GoTo 0
     
     '设置标题
     With ws.Range(ws.Cells(row, column), ws.Cells(row, column + mergeWidth - 1))
         .Merge
+        .NumberFormat = "@" '设置单元格格式为文本
         .Value = batteryName
         .HorizontalAlignment = xlLeft
     End With

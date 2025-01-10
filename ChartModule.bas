@@ -6,9 +6,14 @@
 Option Explicit
 
 '常量定义
-Private Const CHART_WIDTH As Long = 450    '图表宽度
+Private Const CHART_WIDTH As Long = 500    '图表宽度
 Private Const CHART_HEIGHT As Long = 300   '图表高度
 Private Const CHART_GAP As Long = 20       '图表间距
+Private Const CHART_TOTAL_SPACING As Long = 320  '图表总间距 (CHART_HEIGHT + CHART_GAP)
+Private Const PLOT_WIDTH As Long = 360     '绘图区宽度 (CHART_WIDTH * 0.8)
+Private Const PLOT_HEIGHT As Long = 240    '绘图区高度 (CHART_HEIGHT * 0.8)
+Private Const PLOT_LEFT As Long = 45       '绘图区左边距 (CHART_WIDTH * 0.1)
+Private Const PLOT_TOP As Long = 30        '绘图区顶部边距 (CHART_HEIGHT * 0.1)
 
 '颜色常量 - 使用十六进制值
 Private Const COLOR_435 As Long = &HC07000     '435系列蓝色 (RGB 0, 112, 192)
@@ -52,7 +57,7 @@ Public Function CreateDataCharts(ByVal ws As Worksheet, _
     CreateCapacityEnergyChart ws, nextRow, reportName, cycleDataTables
     
     '更新下一个图表的起始位置
-    nextRow = nextRow + CHART_HEIGHT + CHART_GAP
+    nextRow = nextRow + CHART_TOTAL_SPACING
     
     Application.ScreenUpdating = True
     CreateDataCharts = nextRow
@@ -75,7 +80,7 @@ Private Sub CreateCapacityEnergyChart(ByVal ws As Worksheet, _
     
     '创建图表对象
     Dim chartObj As ChartObject
-    Set chartObj = ws.ChartObjects.Add(Left:=ws.Cells(topRow, 2).Left, _
+    Set chartObj = ws.ChartObjects.Add(Left:=ws.Cells(topRow, 3).Left, _
                                      Width:=CHART_WIDTH, _
                                      Top:=ws.Cells(topRow, 2).Top, _
                                      Height:=CHART_HEIGHT)
@@ -168,10 +173,10 @@ Private Sub CreateCapacityEnergyChart(ByVal ws As Worksheet, _
             .Format.Line.Visible = msoTrue
             .Format.Line.ForeColor.RGB = COLOR_GRIDLINE
             .Format.Line.Weight = 0.25
-            .Width = CHART_WIDTH * 0.8
-            .Height = CHART_HEIGHT * 0.8
-            .Left = CHART_WIDTH * 0.1
-            .Top = CHART_HEIGHT * 0.1
+            .InsideWidth = PLOT_WIDTH
+            .InsideHeight = PLOT_HEIGHT
+            .InsideLeft = PLOT_LEFT
+            .InsideTop = PLOT_TOP
         End With
     End With
 End Sub
@@ -247,6 +252,17 @@ Private Sub CreateDCIRChart(ByVal ws As Worksheet, _
         .Axes(xlValue, xlSecondary).AxisTitle.Text = "Rise(%)"
         .HasLegend = True
         .Legend.Position = xlBottom
+        
+        '设置绘图区
+        With .PlotArea
+            .Format.Line.Visible = msoTrue
+            .Format.Line.ForeColor.RGB = COLOR_GRIDLINE
+            .Format.Line.Weight = 0.25
+            .InsideWidth = PLOT_WIDTH
+            .InsideHeight = PLOT_HEIGHT
+            .InsideLeft = PLOT_LEFT
+            .InsideTop = PLOT_TOP
+        End With
     End With
 End Sub
 
@@ -257,3 +273,4 @@ End Sub
 Private Sub LogError(ByVal functionName As String, ByVal errorDescription As String)
     Debug.Print Now & " - " & functionName & " error: " & errorDescription
 End Sub 
+

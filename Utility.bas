@@ -590,20 +590,21 @@ Function ReadCommonConfig() As Collection
         colors.Add cellColor, colorNo
     Next i
     
-    '添加电池名字到单独的集合
+    '添加电池信息到单独的集合
     Dim batteryNames As New Collection
     For i = 1 To batteryNameTable.ListRows.Count
-        Dim batteryNo As Long
-        Dim batteryName As String
+        Dim batteryInfo As New BatteryInfo
         
         '获取序号和名字
-        batteryNo = CLng(batteryNameTable.ListColumns("序号").Range(i + 1).Value)
-        batteryName = CStr(batteryNameTable.ListColumns("名字").Range(i + 1).Value)
+        batteryInfo.Index = CLng(batteryNameTable.ListColumns("序号").Range(i + 1).Value)
+        batteryInfo.Name = CStr(batteryNameTable.ListColumns("名字").Range(i + 1).Value)
         
-        '将电池名字添加到集合中，以序号作为键
-        If Len(batteryName) > 0 Then  '只添加有名字的记录
-            batteryNames.Add batteryName, CStr(batteryNo)
+        '将电池信息添加到集合中，以序号作为键
+        If Len(batteryInfo.Name) > 0 Then  '只添加有名字的记录
+            batteryNames.Add batteryInfo, CStr(batteryInfo.Index)
         End If
+        
+        Set batteryInfo = Nothing
     Next i
     
     '将所有集合添加到result中
@@ -675,3 +676,8 @@ Private Function SafeCloseWorkbook(ByVal wb As Workbook) As Boolean
         SafeCloseWorkbook = False
     End If
 End Function
+
+
+
+
+

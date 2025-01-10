@@ -10,6 +10,8 @@ Option Explicit
 Private Const START_COLUMN As Long = 3     '起始列号（基本数据表的起始列）
 Private Const TABLE_WIDTH As Long = 11     '表格宽度（从循环圈数到DC-IR Rise的总列数）
 Private Const COLUMN_GAP As Long = 14      '表格间隔（不同电池数据表之间的列间距）
+Private Const CHART_WIDTH As Long = 400    '图表默认宽度（以磅为单位）
+Private Const CHART_HEIGHT As Long = 300   '图表默认高度（以磅为单位）
 
 '******************************************
 ' 函数: OutputZPData
@@ -18,7 +20,7 @@ Private Const COLUMN_GAP As Long = 14      '表格间隔（不同电池数据表
 '   - ws: 目标工作表
 '   - rawData: 原始数据集合，包含容量和DCIR数据
 '   - cycleConfig: 循环配置，包含中检间隔、计算方法等
-'   - commonConfig: 公共配置，包含电池名称等信息
+'   - batteryNames: 电池名称集合
 '   - nextRow: 开始输出的行号
 ' 返回: Collection，包含所有创建的ListObject表格对象
 ' 说明: 此函数是中检数据输出的主入口，会为每个电池创建三个表格：
@@ -29,7 +31,7 @@ Private Const COLUMN_GAP As Long = 14      '表格间隔（不同电池数据表
 Public Function OutputZPData(ByVal ws As Worksheet, _
                            ByVal rawData As Collection, _
                            ByVal cycleConfig As Collection, _
-                           ByVal commonConfig As Collection, _
+                           ByVal batteryNames As Collection, _
                            ByVal nextRow As Long) As Collection
     
     On Error GoTo ErrorHandler
@@ -58,7 +60,7 @@ Public Function OutputZPData(ByVal ws As Worksheet, _
     For i = 1 To batteryCount
         '处理单个电池的数据
         Dim batteryTables As Collection
-        Set batteryTables = ProcessBatteryData(ws, rawData, cycleConfig, commonConfig, i, currentRow, START_COLUMN)
+        Set batteryTables = ProcessBatteryData(ws, rawData, cycleConfig, batteryNames, i, currentRow, START_COLUMN)
         
         '将电池表格集合添加到总集合
         If Not batteryTables Is Nothing Then
@@ -93,7 +95,7 @@ End Function
 '   - ws: 工作表对象
 '   - rawData: 原始数据集合
 '   - cycleConfig: 循环配置
-'   - commonConfig: 公共配置
+'   - batteryNames: 电池名称集合
 '   - batteryIndex: 电池序号
 '   - currentRow: 当前行号
 '   - currentColumn: 当前列号
@@ -103,7 +105,7 @@ End Function
 Private Function ProcessBatteryData(ByVal ws As Worksheet, _
                                   ByVal rawData As Collection, _
                                   ByVal cycleConfig As Collection, _
-                                  ByVal commonConfig As Collection, _
+                                  ByVal batteryNames As Collection, _
                                   ByVal batteryIndex As Long, _
                                   ByVal currentRow As Long, _
                                   ByVal currentColumn As Long) As Collection
@@ -117,7 +119,7 @@ Private Function ProcessBatteryData(ByVal ws As Worksheet, _
     Set batteryZPData = rawData(2)(batteryIndex)
     
     '创建表头
-    OutputTableHeader ws, currentRow, currentColumn, batteryIndex, batteryZPData, commonConfig
+    OutputTableHeader ws, currentRow, currentColumn, batteryIndex, batteryZPData, batteryNames
     
     '创建和填充基本数据表
     Dim basicDataTable As ListObject
@@ -358,15 +360,16 @@ Private Sub OutputTableHeader(ByVal ws As Worksheet, _
                             ByVal currentColumn As Long, _
                             ByVal batteryIndex As Long, _
                             ByVal batteryZPData As Collection, _
-                            ByVal commonConfig As Collection)
+                            ByVal batteryNames As Collection)
     
     '输出电池名称
     Dim batteryName As String
-    batteryName = GetBatteryName(batteryIndex, batteryZPData, commonConfig)
+    batteryName = GetBatteryName(batteryIndex, batteryZPData, batteryNames)
     
     '设置标题行
     With ws.Range(ws.Cells(currentRow, currentColumn), ws.Cells(currentRow, currentColumn + 4))
         .Merge
+        .NumberFormat = "@" '设置单元格格式为文本
         .Value = batteryName
         ApplyTitleStyle ws.Range(ws.Cells(currentRow, currentColumn), ws.Cells(currentRow, currentColumn + 4))
     End With
@@ -392,10 +395,16 @@ End Sub
 '******************************************
 Private Function GetBatteryName(ByVal batteryIndex As Long, _
                               ByVal batteryZPData As Collection, _
-                              ByVal commonConfig As Collection) As String
+                              ByVal batteryNames As Collection) As String
     On Error Resume Next
     
-    GetBatteryName = commonConfig("BatteryNames")(CStr(batteryIndex))
+    Dim batteryInfo As BatteryInfo
+    For Each batteryInfo In batteryNames
+        If batteryInfo.Index = batteryIndex Then
+            GetBatteryName = batteryInfo.Name
+            Exit Function
+        End If
+    Next batteryInfo
     
     If Err.Number <> 0 Then
         GetBatteryName = batteryZPData(1).BatteryCode
@@ -1086,3 +1095,14 @@ ErrorHandler:
     LogError "GetDischargeCurrents", Err.Description
     Set GetDischargeCurrents = New Collection
 End Function
+
+'******************************************
+' 过程: ResizeChart
+' 用途: 调整图表大小
+'******************************************
+Private Sub ResizeChart(ByVal chartObject As ChartObject)
+    With chartObject
+        .Width = CHART_WIDTH
+        .Height = CHART_HEIGHT
+    End With
+End Sub
