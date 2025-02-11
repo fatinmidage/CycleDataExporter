@@ -103,13 +103,6 @@ Private Sub CreateCapacityEnergyChart(ByVal ws As Worksheet, _
     With chartObj.Chart
         .ChartType = xlXYScatterLines  '设置为散点图（带平滑线）
         
-        '设置Y轴网格线格式
-        With .Axes(xlValue).MajorGridlines.Format.Line
-            .Visible = msoTrue
-            .ForeColor.RGB = COLOR_GRIDLINE
-            .Weight = 0.25
-        End With
-        
         '为每个电池添加数据系列
         Dim batteryIndex As Long
         For batteryIndex = 1 To cycleDataTables.count
@@ -137,6 +130,13 @@ Private Sub CreateCapacityEnergyChart(ByVal ws As Worksheet, _
                 End If
             End With
         Next batteryIndex
+        
+        '设置Y轴网格线格式
+        With .Axes(xlValue).MajorGridlines.Format.Line
+            .Visible = msoTrue
+            .ForeColor.RGB = COLOR_GRIDLINE
+            .Weight = 0.25
+        End With
         
         '设置图表标题
         .HasTitle = True
