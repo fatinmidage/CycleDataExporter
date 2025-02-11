@@ -74,6 +74,48 @@ ErrorHandler:
     CreateDataCharts = nextRow
 End Function
 
+        '******************************************
+        ' 函数: AddDataSeriesToChart
+        ' 用途: 为图表添加电池数据系列
+        ' 参数:
+        '   - cht: 图表对象
+        '   - ws: 工作表对象
+        '   - cycleDataTables: 循环数据表格集合
+        '******************************************
+        Private Sub AddDataSeriesToChart(ByVal cht As Chart, _
+                                       ByVal ws As Worksheet, _
+                                       ByVal cycleDataTables As Collection)
+            
+            '为每个电池添加数据系列
+            Dim batteryIndex As Long
+            For batteryIndex = 1 To cycleDataTables.Count
+                '获取当前电池的数据表格
+                Dim cycleDataTable As ListObject
+                Set cycleDataTable = cycleDataTables(batteryIndex)
+                
+                '获取电池名称（从表格上方的单元格）
+                Dim batteryName As String
+                batteryName = ws.Range(cycleDataTable.Range.Cells(1, 1).Address).End(xlUp).Value
+                
+                '添加数据系列并设置格式
+                With cht.SeriesCollection.NewSeries
+                    .XValues = cycleDataTable.ListColumns("循环圈数").DataBodyRange
+                    .Values = cycleDataTable.ListColumns("容量保持率").DataBodyRange
+                    .Name = batteryName
+                    .MarkerStyle = xlMarkerStyleNone  '不显示数据点标记
+                    .Format.Line.Weight = 1
+                    
+                    '根据电池型号设置不同的曲线颜色
+                    If InStr(1, batteryName, "435") > 0 Then
+                        .Format.Line.ForeColor.RGB = COLOR_435
+                    ElseIf InStr(1, batteryName, "450") > 0 Then
+                        .Format.Line.ForeColor.RGB = COLOR_450
+                    End If
+                End With
+            Next batteryIndex
+        End Sub
+        
+
 '******************************************
 ' 函数: CreateCapacityEnergyChart
 ' 用途: 创建容量保持率随循环圈数变化的散点图
@@ -94,7 +136,7 @@ Private Sub CreateCapacityEnergyChart(ByVal ws As Worksheet, _
                                     ByVal cycleDataTables As Collection)
     
     '创建图表对象并设置基本属性
-    Dim chartObj As chartObject
+    Dim chartObj As ChartObject
     Set chartObj = ws.ChartObjects.Add(Left:=ws.Cells(topRow, 3).Left, _
                                      Width:=CHART_WIDTH, _
                                      Top:=ws.Cells(topRow, 2).Top, _
@@ -103,33 +145,8 @@ Private Sub CreateCapacityEnergyChart(ByVal ws As Worksheet, _
     With chartObj.Chart
         .ChartType = xlXYScatterLines  '设置为散点图（带平滑线）
         
-        '为每个电池添加数据系列
-        Dim batteryIndex As Long
-        For batteryIndex = 1 To cycleDataTables.count
-            '获取当前电池的数据表格
-            Dim cycleDataTable As ListObject
-            Set cycleDataTable = cycleDataTables(batteryIndex)
-            
-            '获取电池名称（从表格上方的单元格）
-            Dim batteryName As String
-            batteryName = ws.Range(cycleDataTable.Range.Cells(1, 1).Address).End(xlUp).value
-            
-            '添加数据系列并设置格式
-            With .SeriesCollection.NewSeries
-                .XValues = cycleDataTable.ListColumns("循环圈数").DataBodyRange
-                .Values = cycleDataTable.ListColumns("容量保持率").DataBodyRange
-                .Name = batteryName
-                .MarkerStyle = xlMarkerStyleNone  '不显示数据点标记
-                .Format.Line.Weight = 1
-                
-                '根据电池型号设置不同的曲线颜色
-                If InStr(1, batteryName, "435") > 0 Then
-                    .Format.Line.ForeColor.RGB = COLOR_435
-                ElseIf InStr(1, batteryName, "450") > 0 Then
-                    .Format.Line.ForeColor.RGB = COLOR_450
-                End If
-            End With
-        Next batteryIndex
+        '添加数据系列
+        AddDataSeriesToChart chartObj.Chart, ws, cycleDataTables
         
         '设置Y轴网格线格式
         With .Axes(xlValue).MajorGridlines.Format.Line
