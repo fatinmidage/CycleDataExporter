@@ -74,47 +74,143 @@ ErrorHandler:
     CreateDataCharts = nextRow
 End Function
 
-        '******************************************
-        ' 函数: AddDataSeriesToChart
-        ' 用途: 为图表添加电池数据系列
-        ' 参数:
-        '   - cht: 图表对象
-        '   - ws: 工作表对象
-        '   - cycleDataTables: 循环数据表格集合
-        '******************************************
-        Private Sub AddDataSeriesToChart(ByVal cht As Chart, _
-                                       ByVal ws As Worksheet, _
-                                       ByVal cycleDataTables As Collection)
-            
-            '为每个电池添加数据系列
-            Dim batteryIndex As Long
-            For batteryIndex = 1 To cycleDataTables.Count
-                '获取当前电池的数据表格
-                Dim cycleDataTable As ListObject
-                Set cycleDataTable = cycleDataTables(batteryIndex)
-                
-                '获取电池名称（从表格上方的单元格）
-                Dim batteryName As String
-                batteryName = ws.Range(cycleDataTable.Range.Cells(1, 1).Address).End(xlUp).Value
-                
-                '添加数据系列并设置格式
-                With cht.SeriesCollection.NewSeries
-                    .XValues = cycleDataTable.ListColumns("循环圈数").DataBodyRange
-                    .Values = cycleDataTable.ListColumns("容量保持率").DataBodyRange
-                    .Name = batteryName
-                    .MarkerStyle = xlMarkerStyleNone  '不显示数据点标记
-                    .Format.Line.Weight = 1
-                    
-                    '根据电池型号设置不同的曲线颜色
-                    If InStr(1, batteryName, "435") > 0 Then
-                        .Format.Line.ForeColor.RGB = COLOR_435
-                    ElseIf InStr(1, batteryName, "450") > 0 Then
-                        .Format.Line.ForeColor.RGB = COLOR_450
-                    End If
-                End With
-            Next batteryIndex
-        End Sub
+'******************************************
+' 函数: AddDataSeriesToChart
+' 用途: 为图表添加电池数据系列
+' 参数:
+'   - cht: 图表对象
+'   - ws: 工作表对象
+'   - cycleDataTables: 循环数据表格集合
+'******************************************
+Private Sub AddDataSeriesToChart(ByVal cht As Chart, _
+                                ByVal ws As Worksheet, _
+                                ByVal cycleDataTables As Collection, _
+                                ByVal dataColumnName As String)
+    
+    '为每个电池添加数据系列
+    Dim batteryIndex As Long
+    For batteryIndex = 1 To cycleDataTables.Count
+        '获取当前电池的数据表格
+        Dim cycleDataTable As ListObject
+        Set cycleDataTable = cycleDataTables(batteryIndex)
         
+        '获取电池名称（从表格上方的单元格）
+        Dim batteryName As String
+        batteryName = ws.Range(cycleDataTable.Range.Cells(1, 1).Address).End(xlUp).Value
+        
+        '添加数据系列并设置格式
+        With cht.SeriesCollection.NewSeries
+            .XValues = cycleDataTable.ListColumns("循环圈数").DataBodyRange
+            .Values = cycleDataTable.ListColumns(dataColumnName).DataBodyRange
+            .Name = batteryName
+            .MarkerStyle = xlMarkerStyleNone  '不显示数据点标记
+            .Format.Line.Weight = 1
+            
+            '根据电池型号设置不同的曲线颜色
+            If InStr(1, batteryName, "435") > 0 Then
+                .Format.Line.ForeColor.RGB = COLOR_435
+            ElseIf InStr(1, batteryName, "450") > 0 Then
+                .Format.Line.ForeColor.RGB = COLOR_450
+            End If
+        End With
+    Next batteryIndex
+End Sub
+  
+'******************************************
+' 函数: SetupChartAxes
+' 用途: 设置图表的X轴和Y轴属性
+' 参数:
+'   - cht: 图表对象
+'******************************************
+Private Sub SetupChartAxes(ByVal cht As Chart, ByVal yAxisTitle As String)
+    '设置X轴属性
+    With cht.Axes(xlCategory, xlPrimary)
+        .HasTitle = True
+        .AxisTitle.Text = "Cycle Number(N)"
+        .AxisTitle.Font.Name = "Times New Roman"
+        .AxisTitle.Font.Size = 10
+        .AxisTitle.Font.Bold = True
+        .MinimumScale = 0        '从0开始
+        .MaximumScale = 1000     '最大1000圈
+        .MajorUnit = 100         '主刻度间隔100圈
+        .TickLabels.Font.Name = "Times New Roman"
+        .TickLabels.Font.Bold = True
+        .TickMarkSpacing = 1     '设置刻度间隔
+        .MajorTickMark = xlTickMarkInside  '主刻度线向内
+        .MinorTickMark = xlTickMarkNone    '不显示次刻度线
+        .MajorGridlines.Format.Line.Visible = msoTrue
+        .MajorGridlines.Format.Line.ForeColor.RGB = COLOR_GRIDLINE
+        .MajorGridlines.Format.Line.Weight = 0.25
+    End With
+    
+    '设置Y轴属性
+    With cht.Axes(xlValue)
+        .HasTitle = True
+        .AxisTitle.Text = yAxisTitle
+        .AxisTitle.Font.Name = "Times New Roman"
+        .AxisTitle.Font.Size = 10
+        .AxisTitle.Font.Bold = True
+        .MinimumScale = 0.7      '最小70%
+        .MaximumScale = 1        '最大100%
+        .MajorUnit = 0.05        '主刻度间隔5%
+        .TickLabels.Font.Name = "Times New Roman"
+        .TickLabels.Font.Bold = True
+        .TickLabels.NumberFormat = "0%"
+        .MajorTickMark = xlTickMarkInside
+        .MajorGridlines.Format.Line.Visible = msoTrue
+        .MajorGridlines.Format.Line.ForeColor.RGB = COLOR_GRIDLINE
+        .MajorGridlines.Format.Line.Weight = 0.25
+    End With
+End Sub
+        
+'******************************************
+' 函数: CreateCapacityRetentionChart
+' 用途: 创建容量保持率图表对象并设置基本属性
+' 参数:
+'   - ws: 工作表对象
+'   - topRow: 图表顶部所在行号
+'   - reportName: 报告标题
+'   - cycleDataTables: 循环数据表格集合
+'   - dataColumnName: 数据列名称
+'   - yAxisTitle: Y轴标题
+' 返回: ChartObject，创建好的图表对象
+'******************************************
+Private Function CreateCapacityRetentionChart(ByVal ws As Worksheet, _
+                                            ByVal topRow As Long, _
+                                            ByVal reportName As String, _
+                                            ByVal cycleDataTables As Collection, _
+                                            ByVal dataColumnName As String, _
+                                            ByVal yAxisTitle As String) As ChartObject
+    
+    '创建图表对象并设置基本属性
+    Dim chartObj As ChartObject
+    Set chartObj = ws.ChartObjects.Add(Left:=ws.Cells(topRow, 3).Left, _
+                                     Width:=CHART_WIDTH, _
+                                     Top:=ws.Cells(topRow, 2).Top, _
+                                     Height:=CHART_HEIGHT)
+    
+    With chartObj.Chart
+        .ChartType = xlXYScatterLines  '设置为散点图（带平滑线）
+        
+        '添加数据系列
+        AddDataSeriesToChart chartObj.Chart, ws, cycleDataTables, dataColumnName
+        
+        '设置网格线和标题
+        SetupChartGridlines chartObj.Chart
+        SetupChartTitle chartObj.Chart, reportName
+        
+        '设置坐标轴属性
+        SetupChartAxes chartObj.Chart, yAxisTitle
+        
+        '设置图例属性
+        SetupChartLegend .Legend
+        
+        '设置绘图区属性
+        SetupPlotArea .PlotArea
+    End With
+    
+    Set CreateCapacityRetentionChart = chartObj
+End Function       
 
 '******************************************
 ' 函数: CreateCapacityEnergyChart
@@ -135,101 +231,86 @@ Private Sub CreateCapacityEnergyChart(ByVal ws As Worksheet, _
                                     ByVal reportName As String, _
                                     ByVal cycleDataTables As Collection)
     
-    '创建图表对象并设置基本属性
-    Dim chartObj As ChartObject
-    Set chartObj = ws.ChartObjects.Add(Left:=ws.Cells(topRow, 3).Left, _
-                                     Width:=CHART_WIDTH, _
-                                     Top:=ws.Cells(topRow, 2).Top, _
-                                     Height:=CHART_HEIGHT)
-    
-    With chartObj.Chart
-        .ChartType = xlXYScatterLines  '设置为散点图（带平滑线）
-        
-        '添加数据系列
-        AddDataSeriesToChart chartObj.Chart, ws, cycleDataTables
-        
-        '设置Y轴网格线格式
-        With .Axes(xlValue).MajorGridlines.Format.Line
-            .Visible = msoTrue
-            .ForeColor.RGB = COLOR_GRIDLINE
-            .Weight = 0.25
-        End With
-        
-        '设置图表标题
+    '创建容量保持率图表
+    CreateCapacityRetentionChart ws, topRow, reportName, cycleDataTables, "容量保持率", "Capacity Retention"
+
+    '创建能量保持率图表
+    CreateCapacityRetentionChart ws, topRow + 20, reportName, cycleDataTables, "能量保持率", "Energy Retention"
+End Sub
+
+'******************************************
+' 函数: SetupPlotArea
+' 用途: 设置图表的绘图区属性
+' 参数:
+'   - plotArea: 绘图区对象
+'******************************************
+Private Sub SetupPlotArea(ByVal plotArea As PlotArea)
+    With plotArea
+        .Format.Line.Visible = msoTrue
+        .Format.Line.ForeColor.RGB = COLOR_GRIDLINE
+        .Format.Line.Weight = 0.25
+        .InsideWidth = PLOT_WIDTH     '设置绘图区内部宽度
+        .InsideHeight = PLOT_HEIGHT   '设置绘图区内部高度
+        .InsideLeft = PLOT_LEFT       '设置绘图区左边距
+        .InsideTop = PLOT_TOP         '设置绘图区顶部边距
+    End With
+End Sub
+
+'******************************************
+' 函数: SetupChartGridlines
+' 用途: 设置图表的网格线格式
+' 参数:
+'   - cht: 图表对象
+'******************************************
+Private Sub SetupChartGridlines(ByVal cht As Chart)
+    With cht.Axes(xlValue).MajorGridlines.Format.Line
+        .Visible = msoTrue
+        .ForeColor.RGB = COLOR_GRIDLINE
+        .Weight = 0.25
+    End With
+End Sub
+
+'******************************************
+' 函数: SetupChartTitle
+' 用途: 设置图表标题
+' 参数:
+'   - cht: 图表对象
+'   - titleText: 标题文本
+'******************************************
+Private Sub SetupChartTitle(ByVal cht As Chart, ByVal titleText As String)
+    With cht
         .HasTitle = True
-        .ChartTitle.Text = reportName
+        .ChartTitle.Text = titleText
         .ChartTitle.Font.Size = 14
         .ChartTitle.Font.Name = "Times New Roman"
+    End With
+End Sub
+
+'******************************************
+' 函数: SetupChartLegend
+' 用途: 设置图表的图例属性
+' 参数:
+'   - legend: 图例对象
+'******************************************
+Private Sub SetupChartLegend(ByVal legend As Legend)
+    With legend
+        .IncludeInLayout = False  ' 图例与绘图区重叠
+        .Position = xlLegendPositionRight  '先设置为右侧
+        .Left = PLOT_LEFT + PLOT_WIDTH - .Width  '手动设置左侧位置（从左边开始的65%位置）
+        .Top = PLOT_TOP + PLOT_HEIGHT * 0.01   '手动设置顶部位置（从顶部开始的10%位置）
+        .Font.Name = "Times New Roman"
+        .Font.Size = 10
+        .Format.TextFrame2.TextRange.Font.Size = 9
         
-        '设置X轴属性
-        With .Axes(xlCategory, xlPrimary)
-            .HasTitle = True
-            .AxisTitle.Text = "Cycle Number(N)"
-            .AxisTitle.Font.Name = "Times New Roman"
-            .AxisTitle.Font.Size = 10
-            .AxisTitle.Font.Bold = True
-            .MinimumScale = 0        '从0开始
-            .MaximumScale = 1000     '最大1000圈
-            .MajorUnit = 100         '主刻度间隔100圈
-            .TickLabels.Font.Name = "Times New Roman"
-            .TickLabels.Font.Bold = True
-            .TickMarkSpacing = 1     '设置刻度间隔
-            .MajorTickMark = xlTickMarkInside  '主刻度线向内
-            .MinorTickMark = xlTickMarkNone    '不显示次刻度线
-            .MajorGridlines.Format.Line.Visible = msoTrue
-            .MajorGridlines.Format.Line.ForeColor.RGB = COLOR_GRIDLINE
-            .MajorGridlines.Format.Line.Weight = 0.25
+        '设置图例背景半透明
+        With .Format.Fill
+            .Visible = msoTrue
+            .Transparency = 0.7  '设置透明度为70%
+            .ForeColor.RGB = RGB(255, 255, 255)  '设置背景色为白色
         End With
         
-        '设置Y轴属性
-        With .Axes(xlValue)
-            .HasTitle = True
-            .AxisTitle.Text = "Capacity Retention"
-            .AxisTitle.Font.Name = "Times New Roman"
-            .AxisTitle.Font.Size = 10
-            .AxisTitle.Font.Bold = True
-            .MinimumScale = 0.7      '最小70%
-            .MaximumScale = 1        '最大100%
-            .MajorUnit = 0.05        '主刻度间隔5%
-            .TickLabels.Font.Name = "Times New Roman"
-            .TickLabels.Font.Bold = True
-            .TickLabels.NumberFormat = "0%"
-            .MajorGridlines.Format.Line.Visible = msoTrue
-            .MajorGridlines.Format.Line.ForeColor.RGB = COLOR_GRIDLINE
-            .MajorGridlines.Format.Line.Weight = 0.25
-        End With
-        
-        '设置图例属性
-        With .Legend
-            .IncludeInLayout = False  ' 图例与绘图区重叠
-            .Position = xlLegendPositionRight  '先设置为右侧
-            .Left = PLOT_LEFT + PLOT_WIDTH - .Width  '手动设置左侧位置（从左边开始的65%位置）
-            .Top = PLOT_TOP + PLOT_HEIGHT * 0.01   '手动设置顶部位置（从顶部开始的10%位置）
-            .Font.Name = "Times New Roman"
-            .Font.Size = 10
-            .Format.TextFrame2.TextRange.Font.Size = 9
-            
-            '设置图例背景半透明
-            With .Format.Fill
-                .Visible = msoTrue
-                .Transparency = 0.7  '设置透明度为70%
-                .ForeColor.RGB = RGB(255, 255, 255)  '设置背景色为白色
-            End With
-            
-            '设置图例边框
-            .Format.Line.Visible = msoFalse
-        End With
-        
-        '设置绘图区属性
-        With .PlotArea
-            .Format.Line.Visible = msoTrue
-            .Format.Line.ForeColor.RGB = COLOR_GRIDLINE
-            .Format.Line.Weight = 0.25
-            .InsideWidth = PLOT_WIDTH     '设置绘图区内部宽度
-            .InsideHeight = PLOT_HEIGHT   '设置绘图区内部高度
-            .InsideLeft = PLOT_LEFT       '设置绘图区左边距
-            .InsideTop = PLOT_TOP         '设置绘图区顶部边距
-        End With
+        '设置图例边框
+        .Format.Line.Visible = msoFalse
     End With
 End Sub
 
