@@ -11,7 +11,7 @@ Option Explicit
 Private Const CHART_WIDTH As Long = 450    '图表总宽度（磅）
 Private Const CHART_HEIGHT As Long = 300   '图表总高度（磅）
 Private Const CHART_GAP As Long = 20       '图表之间的垂直间距（磅）
-Private Const CHART_TOTAL_SPACING As Long = 320  '图表总间距（CHART_HEIGHT + CHART_GAP）
+Private Const CHART_TOTAL_SPACING As Long = 40  '图表总间距（CHART_HEIGHT + CHART_GAP）
 
 '绘图区尺寸和位置相关常量（相对于图表的百分比）
 Private Const PLOT_WIDTH As Long = 370     '绘图区宽度（约为图表宽度的82%）
@@ -64,7 +64,10 @@ Public Function CreateDataCharts(ByVal ws As Worksheet, _
     '计算下一个图表的起始位置
     nextRow = nextRow + CHART_TOTAL_SPACING
     
-    Application.ScreenUpdating = True  '恢复屏幕更新
+    '创建DCR增长率图表
+    CreateDCRRiseChart ws, nextRow, zpTables, commonConfig(3)
+    
+    Application.ScreenUpdating = True
     CreateDataCharts = nextRow
     Exit Function
     
@@ -104,7 +107,7 @@ Private Sub AddDataSeriesToChart(ByVal cht As Chart, _
             .Values = cycleDataTable.ListColumns(dataColumnName).DataBodyRange
             .Name = batteryName
             .MarkerStyle = xlMarkerStyleNone  '不显示数据点标记
-            .Format.Line.Weight = 1
+            .Format.Line.Weight = 1.5
             
             '根据电池型号设置不同的曲线颜色
             If InStr(1, batteryName, "435") > 0 Then
@@ -314,113 +317,7 @@ Private Sub SetupChartLegend(ByVal legend As Legend)
     End With
 End Sub
 
-'******************************************
-' 函数: CreateDCIRChart
-' 用途: 创建DCIR和DCIR Rise变化的散点图
-' 参数:
-'   - ws: 目标工作表对象
-'   - topRow: 图表顶部所在行号
-'   - leftPosition: 图表左侧位置（用于多图表布局）
-'   - batteryName: 电池名称，用于图表标题
-'   - dcirTable: DCIR数据表格，包含90%、50%、10%三个SOC点的数据
-'   - dcirRiseTable: DCIR Rise数据表格，包含90%、50%、10%三个SOC点的数据
-' 说明: 此函数创建双Y轴图表
-'       - 左Y轴显示DCIR值（mΩ）
-'       - 右Y轴显示Rise值（%）
-'       - DCIR数据使用圆形标记
-'       - Rise数据使用三角形标记
-'       - 图例位于图表底部
-'******************************************
-Private Sub CreateDCIRChart(ByVal ws As Worksheet, _
-                          ByVal topRow As Long, _
-                          ByVal leftPosition As Long, _
-                          ByVal batteryName As String, _
-                          ByVal dcirTable As ListObject, _
-                          ByVal dcirRiseTable As ListObject)
-    
-    '创建图表对象
-    Dim cht As Chart
-    Set cht = ws.Shapes.AddChart2(201, xlXYScatter).Chart
-    
-    '设置图表位置和大小
-    With cht.Parent
-        .Left = ws.Cells(topRow, 2).Left + leftPosition
-        .Top = ws.Cells(topRow, 2).Top
-        .Width = CHART_WIDTH
-        .Height = CHART_HEIGHT
-    End With
-    
-    '获取X轴数据（循环圈数）
-    Dim cycleNumbers As Range
-    Set cycleNumbers = dcirTable.ListColumns(1).DataBodyRange
-    
-    '添加DCIR和Rise数据系列（90%、50%、10% SOC点）
-    Dim socIndex As Long
-    For socIndex = 1 To 3
-        '添加DCIR数据系列
-        With cht.SeriesCollection.NewSeries
-            .XValues = cycleNumbers
-            .Values = dcirTable.ListColumns(socIndex).DataBodyRange
-            Select Case socIndex
-                Case 1: .Name = "DCIR 90%"
-                Case 2: .Name = "DCIR 50%"
-                Case 3: .Name = "DCIR 10%"
-            End Select
-            .Format.Line.Weight = 2
-            .MarkerStyle = xlMarkerStyleCircle  '圆形标记
-            .MarkerSize = 5
-        End With
-        
-        '添加DCIR Rise数据系列
-        With cht.SeriesCollection.NewSeries
-            .XValues = cycleNumbers
-            .Values = dcirRiseTable.ListColumns(socIndex).DataBodyRange
-            Select Case socIndex
-                Case 1: .Name = "Rise 90%"
-                Case 2: .Name = "Rise 50%"
-                Case 3: .Name = "Rise 10%"
-            End Select
-            .Format.Line.Weight = 2
-            .MarkerStyle = xlMarkerStyleTriangle  '三角形标记
-            .MarkerSize = 5
-            .AxisGroup = 2  '使用第二个Y轴（右侧）
-        End With
-    Next socIndex
-    
-    '设置图表格式
-    With cht
-        '设置标题
-        .HasTitle = True
-        .ChartTitle.Text = batteryName & " DCIR和Rise变化"
-        
-        '设置X轴
-        .Axes(xlCategory).HasTitle = True
-        .Axes(xlCategory).AxisTitle.Text = "循环圈数"
-        
-        '设置主Y轴（DCIR）
-        .Axes(xlValue, xlPrimary).HasTitle = True
-        .Axes(xlValue, xlPrimary).AxisTitle.Text = "DCIR(mΩ)"
-        
-        '设置次Y轴（Rise）
-        .Axes(xlValue, xlSecondary).HasTitle = True
-        .Axes(xlValue, xlSecondary).AxisTitle.Text = "Rise(%)"
-        
-        '设置图例
-        .HasLegend = True
-        .Legend.Position = xlBottom  '图例位于底部
-        
-        '设置绘图区
-        With .PlotArea
-            .Format.Line.Visible = msoTrue
-            .Format.Line.ForeColor.RGB = COLOR_GRIDLINE
-            .Format.Line.Weight = 0.25
-            .InsideWidth = PLOT_WIDTH     '设置绘图区内部宽度
-            .InsideHeight = PLOT_HEIGHT   '设置绘图区内部高度
-            .InsideLeft = PLOT_LEFT       '设置绘图区左边距
-            .InsideTop = PLOT_TOP         '设置绘图区顶部边距
-        End With
-    End With
-End Sub
+
 
 '******************************************
 ' 过程: LogError
@@ -435,5 +332,66 @@ Private Sub LogError(ByVal functionName As String, ByVal errorDescription As Str
     Debug.Print Now & " - " & functionName & " error: " & errorDescription
 End Sub
 
+'******************************************
+' 函数: CreateDCRRiseChart
+' 用途: 创建DCR增长率随循环圈数变化的散点图
+' 参数:
+'   - ws: 目标工作表对象
+'   - topRow: 图表顶部所在行号
+'   - zpTables: 中检数据表格集合
+'   - colorCollection: 颜色集合，包含不同型号电池的曲线颜色
+'******************************************
+Private Sub CreateDCRRiseChart(ByVal ws As Worksheet, _
+                             ByVal topRow As Long, _
+                             ByVal zpTables As Collection, _
+                             ByVal colorCollection As Collection)
 
+    '获取电池名称（从表格上方的单元格）
+    Dim batteryName As String
+
+    '创建图表对象并设置基本属性
+    Dim chartObj As ChartObject
+    Set chartObj = ws.ChartObjects.Add(Left:=ws.Cells(topRow, 3).Left, _
+                                     Width:=CHART_WIDTH, _
+                                     Top:=ws.Cells(topRow, 2).Top, _
+                                     Height:=CHART_HEIGHT)
+    With chartObj.Chart
+        .ChartType = xlXYScatterLines  '设置为散点图（带平滑线）
+        
+        '遍历每个电池的中检数据表
+        Dim batteryIndex As Long
+        For batteryIndex = 1 To zpTables.Count
+            Dim batteryTables As Collection
+            Set batteryTables = zpTables(batteryIndex)
+            
+            '获取中检容量保持率表
+            Dim zpCapacityTable As ListObject
+            Set zpCapacityTable = batteryTables(1)
+            
+            '添加数据系列
+            With .SeriesCollection.NewSeries
+                .XValues = zpCapacityTable.ListColumns("循环圈数").DataBodyRange
+                .Values = zpCapacityTable.ListColumns("容量保持率").DataBodyRange
+                batteryName = ws.Cells(zpCapacityTable.Range.Row - 1, zpCapacityTable.Range.Column).Value
+                .Name = batteryName
+                .MarkerStyle = xlMarkerStyleNone
+                .Format.Line.Weight = 1.5
+                .Format.Line.ForeColor.RGB = colorCollection(batteryIndex)
+            End With
+        Next batteryIndex
+        
+        '设置网格线和标题
+        SetupChartGridlines chartObj.Chart
+        SetupChartTitle chartObj.Chart, "DCR Rise"
+        
+        '设置坐标轴属性
+        SetupChartAxes chartObj.Chart, "DCR Rise"
+        
+        '设置图例属性
+        SetupChartLegend .Legend
+        
+        '设置绘图区属性
+        SetupPlotArea .PlotArea
+    End With
+End Sub
 
