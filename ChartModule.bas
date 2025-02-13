@@ -246,13 +246,15 @@ End Sub
 ' 用途: 设置图表的绘图区属性
 ' 参数:
 '   - plotArea: 绘图区对象
+'   - Optional plotWidth: 绘图区宽度，默认为 PLOT_WIDTH
 '******************************************
-Private Sub SetupPlotArea(ByVal plotArea As PlotArea)
+Private Sub SetupPlotArea(ByVal plotArea As PlotArea, _
+                         Optional ByVal plotWidth As Long = PLOT_WIDTH)
     With plotArea
         .Format.Line.Visible = msoTrue
         .Format.Line.ForeColor.RGB = COLOR_GRIDLINE
         .Format.Line.Weight = 0.25
-        .InsideWidth = PLOT_WIDTH     '设置绘图区内部宽度
+        .InsideWidth = plotWidth     '设置绘图区内部宽度
         .InsideHeight = PLOT_HEIGHT   '设置绘图区内部高度
         .InsideLeft = PLOT_LEFT       '设置绘图区左边距
         .InsideTop = PLOT_TOP         '设置绘图区顶部边距
@@ -294,26 +296,30 @@ End Sub
 ' 用途: 设置图表的图例属性
 ' 参数:
 '   - legend: 图例对象
+'   - Optional plotWidth: 绘图区宽度，默认为 PLOT_WIDTH
+' 说明: 此函数设置图例的位置、字体和外观
+'       - 位置：右侧，靠近绘图区右上角
+'       - 字体：Times New Roman，10号字
+'       - 外观：无边框，无背景填充
 '******************************************
-Private Sub SetupChartLegend(ByVal legend As Legend)
+Private Sub SetupChartLegend(ByVal legend As Legend, _
+                           Optional ByVal plotWidth As Long = PLOT_WIDTH)
     With legend
-        .IncludeInLayout = False  ' 图例与绘图区重叠
-        .Position = xlLegendPositionRight  '先设置为右侧
-        .Left = PLOT_LEFT + PLOT_WIDTH - .Width  '手动设置左侧位置（从左边开始的65%位置）
-        .Top = PLOT_TOP + PLOT_HEIGHT * 0.01   '手动设置顶部位置（从顶部开始的10%位置）
+        '设置图例位置
+        .Position = xlLegendPositionRight
+        .Left = PLOT_LEFT + plotWidth - .Width  '设置左侧位置（紧贴绘图区右边）
+        .Top = PLOT_TOP + PLOT_HEIGHT * 0.01    '设置顶部位置（略微偏离绘图区顶部）
+        
+        '设置字体属性
         .Font.Name = "Times New Roman"
         .Font.Size = 10
         .Format.TextFrame2.TextRange.Font.Size = 9
         
-        '设置图例背景半透明
+        '设置图例背景和边框
         With .Format.Fill
-            .Visible = msoTrue
-            .Transparency = 0.7  '设置透明度为70%
-            .ForeColor.RGB = RGB(255, 255, 255)  '设置背景色为白色
+            .Visible = msoFalse  '不显示背景填充
         End With
-        
-        '设置图例边框
-        .Format.Line.Visible = msoFalse
+        .Format.Line.Visible = msoFalse  '不显示边框
     End With
 End Sub
 
@@ -333,6 +339,46 @@ Private Sub LogError(ByVal functionName As String, ByVal errorDescription As Str
 End Sub
 
 '******************************************
+' 函数: AddZPDataSeriesToChart
+' 用途: 为中检图表添加电池数据系列
+' 参数:
+'   - cht: 图表对象
+'   - ws: 工作表对象
+'   - zpTables: 中检数据表格集合
+'   - colorCollection: 颜色集合
+'******************************************
+Private Sub AddZPDataSeriesToChart(ByVal cht As Chart, _
+                                 ByVal ws As Worksheet, _
+                                 ByVal zpTables As Collection, _
+                                 ByVal colorCollection As Collection)
+    
+    '遍历每个电池的中检数据表
+    Dim batteryIndex As Long
+    For batteryIndex = 1 To zpTables.Count
+        Dim batteryTables As Collection
+        Set batteryTables = zpTables(batteryIndex)
+        
+        '获取中检容量保持率表
+        Dim zpCapacityTable As ListObject
+        Set zpCapacityTable = batteryTables(1)
+        
+        '添加数据系列
+        With cht.SeriesCollection.NewSeries
+            .XValues = zpCapacityTable.ListColumns("循环圈数").DataBodyRange
+            .Values = zpCapacityTable.ListColumns("容量保持率").DataBodyRange
+            .Name = ws.Cells(zpCapacityTable.Range.Row - 1, zpCapacityTable.Range.Column).Value
+            .MarkerStyle = xlMarkerStyleNone
+            .Format.Line.Weight = 1.5
+            .MarkerStyle = xlMarkerStyleCircle  '设置圆形标记
+            .Format.Line.Weight = 1.5
+            .MarkerSize = 4                     '设置标记大小
+            .MarkerForegroundColor = colorCollection(batteryIndex)  '标记边框颜色
+            .MarkerBackgroundColor = RGB(255, 255, 255)  '标记填充白色
+        End With
+    Next batteryIndex
+End Sub
+
+'******************************************
 ' 函数: CreateDCRRiseChart
 ' 用途: 创建DCR增长率随循环圈数变化的散点图
 ' 参数:
@@ -346,9 +392,6 @@ Private Sub CreateDCRRiseChart(ByVal ws As Worksheet, _
                              ByVal zpTables As Collection, _
                              ByVal colorCollection As Collection)
 
-    '获取电池名称（从表格上方的单元格）
-    Dim batteryName As String
-
     '创建图表对象并设置基本属性
     Dim chartObj As ChartObject
     Set chartObj = ws.ChartObjects.Add(Left:=ws.Cells(topRow, 3).Left, _
@@ -356,42 +399,83 @@ Private Sub CreateDCRRiseChart(ByVal ws As Worksheet, _
                                      Top:=ws.Cells(topRow, 2).Top, _
                                      Height:=CHART_HEIGHT)
     With chartObj.Chart
-        .ChartType = xlXYScatterLines  '设置为散点图（带平滑线）
+        .ChartType = xlXYScatterLines
         
-        '遍历每个电池的中检数据表
-        Dim batteryIndex As Long
-        For batteryIndex = 1 To zpTables.Count
-            Dim batteryTables As Collection
-            Set batteryTables = zpTables(batteryIndex)
-            
-            '获取中检容量保持率表
-            Dim zpCapacityTable As ListObject
-            Set zpCapacityTable = batteryTables(1)
-            
-            '添加数据系列
-            With .SeriesCollection.NewSeries
-                .XValues = zpCapacityTable.ListColumns("循环圈数").DataBodyRange
-                .Values = zpCapacityTable.ListColumns("容量保持率").DataBodyRange
-                batteryName = ws.Cells(zpCapacityTable.Range.Row - 1, zpCapacityTable.Range.Column).Value
-                .Name = batteryName
-                .MarkerStyle = xlMarkerStyleNone
-                .Format.Line.Weight = 1.5
-                .Format.Line.ForeColor.RGB = colorCollection(batteryIndex)
-            End With
-        Next batteryIndex
+        '添加主坐标轴数据系列
+        AddZPDataSeriesToChart chartObj.Chart, ws, zpTables, colorCollection
+        
+        '添加次坐标轴数据系列
+        AddDCIRDataSeriesToChart chartObj.Chart, ws, zpTables, colorCollection
+        
+        '设置次坐标轴属性
+        With .Axes(xlValue, xlSecondary)
+            .HasTitle = True
+            .AxisTitle.Text = "DCIR increase rate"
+            .AxisTitle.Font.Name = "Times New Roman"
+            .AxisTitle.Font.Size = 10
+            .AxisTitle.Font.Bold = True
+            .MinimumScale = -0.1        '从0%开始
+            .MaximumScale = 1.5       '最大100%
+            .MajorUnit = 0.2         '主刻度间隔10%
+            .TickLabels.Font.Name = "Times New Roman"
+            .TickLabels.Font.Bold = True
+            .TickLabels.NumberFormat = "0%"
+            .MajorTickMark = xlTickMarkInside
+        End With
         
         '设置网格线和标题
         SetupChartGridlines chartObj.Chart
-        SetupChartTitle chartObj.Chart, "DCR Rise"
+        SetupChartTitle chartObj.Chart, "ZP of Cycle"
         
         '设置坐标轴属性
-        SetupChartAxes chartObj.Chart, "DCR Rise"
+        SetupChartAxes chartObj.Chart, "Residual Capacity"
         
         '设置图例属性
-        SetupChartLegend .Legend
+        SetupChartLegend .Legend, 330
         
         '设置绘图区属性
-        SetupPlotArea .PlotArea
+        SetupPlotArea .PlotArea, 330
     End With
 End Sub
 
+'******************************************
+' 函数: AddDCIRDataSeriesToChart
+' 用途: 为图表添加DCIR数据系列（次坐标轴）
+' 参数:
+'   - cht: 图表对象
+'   - ws: 工作表对象
+'   - zpTables: 中检数据表格集合
+'   - colorCollection: 颜色集合
+'******************************************
+Private Sub AddDCIRDataSeriesToChart(ByVal cht As Chart, _
+                                    ByVal ws As Worksheet, _
+                                    ByVal zpTables As Collection, _
+                                    ByVal colorCollection As Collection)
+    
+    '遍历每个电池的中检数据表
+    Dim batteryIndex As Long
+    For batteryIndex = 1 To zpTables.Count
+        Dim batteryTables As Collection
+        Set batteryTables = zpTables(batteryIndex)
+        
+        '获取DCIR表格
+        Dim dcirTable As ListObject
+        Set dcirTable = batteryTables(3)
+        
+        '添加数据系列
+        With cht.SeriesCollection.NewSeries
+            .XValues = batteryTables(1).ListColumns("循环圈数").DataBodyRange
+            .Values = dcirTable.ListColumns("50%").DataBodyRange
+            .Name = ws.Cells(batteryTables(1).Range.Row - 1, batteryTables(1).Range.Column).Value
+            .MarkerStyle = xlMarkerStyleNone
+            .Format.Line.Weight = 1.5
+            .MarkerStyle = xlMarkerStyleCircle
+            .MarkerSize = 4
+            .MarkerForegroundColor = colorCollection(batteryIndex)
+            .MarkerBackgroundColor = RGB(255, 255, 255)
+            .Format.Line.ForeColor.RGB = colorCollection(batteryIndex)
+            .Format.Line.DashStyle = msoLineDash  '设置为标准虚线
+            .AxisGroup = xlSecondary
+        End With
+    Next batteryIndex
+End Sub
