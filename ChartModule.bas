@@ -30,7 +30,7 @@ Private Const COLOR_GRIDLINE As Long = &HBFBFBF '网格线颜色（浅灰色，R
 ' 参数:
 '   - ws: 目标工作表对象
 '   - nextRow: 图表开始绘制的行号
-'   - reportName: 报告标题，用于图表标题
+'   - reportName: 报告标题
 '   - commonConfig: 公共配置信息，包含电池名称等数据
 '   - zpTables: 中检数据表格集合，包含所有电池的中检数据
 '   - cycleDataTables: 循环数据表格集合，包含所有电池的循环数据
@@ -56,10 +56,11 @@ Public Function CreateDataCharts(ByVal ws As Worksheet, _
         .Font.Size = 10
     End With
     
+    '修改 CreateDataCharts 中的调用
     nextRow = nextRow + 2  '标题行后空一行
     
     '创建容量和能量保持率图表
-    CreateCapacityEnergyChart ws, nextRow, reportName, cycleDataTables
+    CreateCapacityEnergyChart ws, nextRow, reportName, cycleDataTables, commonConfig
     
     '计算下一个图表的起始位置
     nextRow = nextRow + CHART_TOTAL_SPACING
@@ -88,7 +89,8 @@ End Function
 Private Sub AddDataSeriesToChart(ByVal cht As Chart, _
                                 ByVal ws As Worksheet, _
                                 ByVal cycleDataTables As Collection, _
-                                ByVal dataColumnName As String)
+                                ByVal dataColumnName As String, _
+                                ByVal commonConfig As Collection)
     
     '为每个电池添加数据系列
     Dim batteryIndex As Long
@@ -109,12 +111,8 @@ Private Sub AddDataSeriesToChart(ByVal cht As Chart, _
             .MarkerStyle = xlMarkerStyleNone  '不显示数据点标记
             .Format.Line.Weight = 1.5
             
-            '根据电池型号设置不同的曲线颜色
-            If InStr(1, batteryName, "435") > 0 Then
-                .Format.Line.ForeColor.RGB = COLOR_435
-            ElseIf InStr(1, batteryName, "450") > 0 Then
-                .Format.Line.ForeColor.RGB = COLOR_450
-            End If
+            '使用commonConfig中的颜色值设置曲线颜色
+            .Format.Line.ForeColor.RGB = commonConfig(3)(batteryIndex)
         End With
     Next batteryIndex
 End Sub
@@ -183,7 +181,8 @@ Private Function CreateCapacityRetentionChart(ByVal ws As Worksheet, _
                                             ByVal reportName As String, _
                                             ByVal cycleDataTables As Collection, _
                                             ByVal dataColumnName As String, _
-                                            ByVal yAxisTitle As String) As ChartObject
+                                            ByVal yAxisTitle As String, _
+                                            ByVal commonConfig As Collection) As ChartObject
     
     '创建图表对象并设置基本属性
     Dim chartObj As ChartObject
@@ -196,7 +195,7 @@ Private Function CreateCapacityRetentionChart(ByVal ws As Worksheet, _
         .ChartType = xlXYScatterLines  '设置为散点图（带平滑线）
         
         '添加数据系列
-        AddDataSeriesToChart chartObj.Chart, ws, cycleDataTables, dataColumnName
+        AddDataSeriesToChart chartObj.Chart, ws, cycleDataTables, dataColumnName, commonConfig
         
         '设置网格线和标题
         SetupChartGridlines chartObj.Chart
@@ -232,13 +231,14 @@ End Function
 Private Sub CreateCapacityEnergyChart(ByVal ws As Worksheet, _
                                     ByVal topRow As Long, _
                                     ByVal reportName As String, _
-                                    ByVal cycleDataTables As Collection)
+                                    ByVal cycleDataTables As Collection, _
+                                    ByVal commonConfig As Collection)
     
     '创建容量保持率图表
-    CreateCapacityRetentionChart ws, topRow, reportName, cycleDataTables, "容量保持率", "Capacity Retention"
+    CreateCapacityRetentionChart ws, topRow, reportName, cycleDataTables, "容量保持率", "Capacity Retention", commonConfig
 
     '创建能量保持率图表
-    CreateCapacityRetentionChart ws, topRow + 20, reportName, cycleDataTables, "能量保持率", "Energy Retention"
+    CreateCapacityRetentionChart ws, topRow + 20, reportName, cycleDataTables, "能量保持率", "Energy Retention", commonConfig
 End Sub
 
 '******************************************
