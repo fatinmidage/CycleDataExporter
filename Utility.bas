@@ -351,7 +351,7 @@ Function ExtractZPDCRDataFromWorksheet(ByVal ws As Worksheet) As Collection
                 On Error Resume Next
                 stepNo = CLng(ws.Cells(i, j).Value)
                 batteryCode = CStr(ws.Cells(i, j + 1).Value)
-                stepTime = ws.Cells(i, j + 2).Value          '直接获取工步时间
+                stepTime = Format(ws.Cells(i, j + 2).value, "hh:mm:ss")          '直接获取工步时间
                 voltage = CDbl(ws.Cells(i, j + 3).Value)
                 current = CDbl(ws.Cells(i, j + 4).Value)
                 

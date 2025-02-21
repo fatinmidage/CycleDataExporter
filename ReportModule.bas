@@ -149,8 +149,8 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     originalStyle = Application.ReferenceStyle
     
     '设置为R1C1引用样式
-    If Application.ReferenceStyle <> xlR1C1 Then
-        Application.ReferenceStyle = xlR1C1
+    If Application.ReferenceStyle <> XlReferenceStyle.xlR1C1 Then
+        Application.ReferenceStyle = XlReferenceStyle.xlR1C1
     End If
     
     '获取当前工作簿
@@ -216,6 +216,7 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     
     '恢复引用样式
     Application.ReferenceStyle = originalStyle
+    ws.Activate
     
     OutputReport = True
     Exit Function

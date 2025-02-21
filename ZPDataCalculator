@@ -28,7 +28,6 @@ Option Explicit
 
 Public Function CalculateZPDCRResults(ByVal batteryZPDCRData As Collection, _
                                      ByVal cycleConfig As Collection) As Collection
-    
     On Error GoTo ErrorHandler
     
     Dim results As New Collection
@@ -36,6 +35,32 @@ Public Function CalculateZPDCRResults(ByVal batteryZPDCRData As Collection, _
     '获取放电时间和大中检配置
     Dim targetDischargeTime As String
     targetDischargeTime = GetTargetDischargeTime(cycleConfig)
+    Dim hasBigZPDCR As Boolean
+    hasBigZPDCR = (cycleConfig(FIELD_IS_LARGE_CHECK) = "是")
+    
+    If Not hasBigZPDCR Then
+        Set results = ProcessStandardZPDCR(batteryZPDCRData, cycleConfig, targetDischargeTime)
+    Else
+        '处理大中检的逻辑
+        Set results = ProcessLargeZPDCR(batteryZPDCRData, cycleConfig, targetDischargeTime)
+    End If
+    
+    Set CalculateZPDCRResults = results
+    Exit Function
+    
+ErrorHandler:
+    LogError "CalculateZPDCRResults", Err.Description
+    Set CalculateZPDCRResults = New Collection
+End Function
+
+'******************************************
+' 函数: ProcessLargeZPDCR
+' 用途: 处理大中检的DCR计算
+'******************************************
+Private Function ProcessLargeZPDCR(ByVal batteryZPDCRData As Collection, _
+                                 ByVal cycleConfig As Collection, _
+                                 ByVal targetDischargeTime As String) As Collection
+    Dim results As New Collection
     
     '处理每个SOC点
     Dim socIndex As Long
@@ -52,18 +77,50 @@ Public Function CalculateZPDCRResults(ByVal batteryZPDCRData As Collection, _
         
         '计算当前SOC点的DCR值
         Dim dcrResult As Collection
-        Set dcrResult = CalculateSingleSOCDCR(batteryZPDCRData, stepNumbers, targetDischargeTime)
+        '将字符串转换为布尔值
+        Dim hasBigZPDCR As Boolean
+        hasBigZPDCR = (cycleConfig(FIELD_IS_LARGE_CHECK) = "是")
+        Set dcrResult = CalculateSingleSOCDCR(batteryZPDCRData, stepNumbers, targetDischargeTime, hasBigZPDCR)
         results.Add dcrResult
         
 NextSOC:
     Next socIndex
     
-    Set CalculateZPDCRResults = results
-    Exit Function
+    Set ProcessLargeZPDCR = results
+End Function
+
+
+'******************************************
+' 函数: ProcessStandardZPDCR
+' 用途: 处理标准中检的DCR计算
+'******************************************
+Private Function ProcessStandardZPDCR(ByVal batteryZPDCRData As Collection, _
+                                    ByVal cycleConfig As Collection, _
+                                    ByVal targetDischargeTime As String) As Collection
+    Dim results As New Collection
     
-ErrorHandler:
-    LogError "CalculateZPDCRResults", Err.Description
-    Set CalculateZPDCRResults = New Collection
+    '处理每个SOC点
+    Dim socIndex As Long
+    For socIndex = 1 To 3
+        '获取工步号
+        Dim stepNumbers As Collection
+        Set stepNumbers = GetStepNumbers(cycleConfig, socIndex)
+        
+        '检查工步号是否有效
+        If Not IsValidStepNumbers(stepNumbers) Then
+            results.Add New Collection
+            GoTo NextSOC
+        End If
+        
+        '计算当前SOC点的DCR值
+        Dim dcrResult As Collection
+        Set dcrResult = CalculateSingleSOCDCR(batteryZPDCRData, stepNumbers, targetDischargeTime,cycleConfig(FIELD_IS_LARGE_CHECK))
+        results.Add dcrResult
+        
+NextSOC:
+    Next socIndex
+    
+    Set ProcessStandardZPDCR = results
 End Function
 
 '******************************************
@@ -72,17 +129,32 @@ End Function
 '******************************************
 Private Function GetStepNumbers(ByVal cycleConfig As Collection, ByVal socIndex As Long) As Collection
     Dim stepNumbers As New Collection
-    
+                    
     Select Case socIndex
         Case 1 '90% SOC
             stepNumbers.Add CLng(cycleConfig(FIELD_SOC_90_MEASURE_STEP_NO)), "measureStepNo"
             stepNumbers.Add CLng(cycleConfig(FIELD_SOC_90_DISCHARGE_STEP_NO)), "dischargeStepNo"
+            '判断是否存在大中检
+            If cycleConfig(FIELD_IS_LARGE_CHECK) = "是" Then
+                stepNumbers.Add CLng(cycleConfig(FIELD_LARGE_CHECK_90_SOC_STEP_NO)), "largeZPMesureStepNo"
+                stepNumbers.Add CLng(cycleConfig(FIELD_LARGE_CHECK_90_SOC_DISCHARGE_STEP_NO)), "largeZPDischargeStepNo"
+            End If
         Case 2 '50% SOC
             stepNumbers.Add CLng(cycleConfig(FIELD_SOC_50_MEASURE_STEP_NO)), "measureStepNo"
             stepNumbers.Add CLng(cycleConfig(FIELD_SOC_50_DISCHARGE_STEP_NO)), "dischargeStepNo"
+            '判断是否存在大中检
+            If cycleConfig(FIELD_IS_LARGE_CHECK) = "是" Then
+                stepNumbers.Add CLng(cycleConfig(FIELD_LARGE_CHECK_50_SOC_STEP_NO)), "largeZPMesureStepNo"
+                stepNumbers.Add CLng(cycleConfig(FIELD_LARGE_CHECK_50_SOC_DISCHARGE_STEP_NO)), "largeZPDischargeStepNo"
+            End If
         Case 3 '10% SOC
             stepNumbers.Add CLng(cycleConfig(FIELD_SOC_10_MEASURE_STEP_NO)), "measureStepNo"
             stepNumbers.Add CLng(cycleConfig(FIELD_SOC_10_DISCHARGE_STEP_NO)), "dischargeStepNo"
+            '判断是否存在大中检
+            If cycleConfig(FIELD_IS_LARGE_CHECK) = "是" Then
+                stepNumbers.Add CLng(cycleConfig(FIELD_LARGE_CHECK_10_SOC_STEP_NO)), "largeZPMesureStepNo"
+                stepNumbers.Add CLng(cycleConfig(FIELD_LARGE_CHECK_10_SOC_DISCHARGE_STEP_NO)), "largeZPDischargeStepNo"
+            End If
     End Select
     
     Set GetStepNumbers = stepNumbers
@@ -118,17 +190,31 @@ End Function
 '******************************************
 ' 函数: CalculateSingleSOCDCR
 ' 用途: 计算单个SOC点的DCR值
+' 参数:
+'   - batteryZPDCRData: 电池DCR数据集合
+'   - stepNumbers: 工步号集合
+'   - targetDischargeTime: 目标放电时间
+'   - hasBigZPDCR: 是否为大中检模式
+' 返回: Collection，包含计算得到的DCR值
+' 说明: 
+'   1. 首先获取搁置电压、放电电压和放电电流
+'   2. 使用公式: DCR = (搁置电压 - 放电电压) / |放电电流| * 1000
+'   3. 结果单位为mΩ(毫欧)
 '******************************************
 Private Function CalculateSingleSOCDCR(ByVal batteryZPDCRData As Collection, _
                                      ByVal stepNumbers As Collection, _
-                                     ByVal targetDischargeTime As String) As Collection
+                                     ByVal targetDischargeTime As String, _
+                                     ByVal hasBigZPDCR as Boolean) As Collection
     
+    '获取搁置工步的电压值
     Dim measureVoltages As Collection
-    Set measureVoltages = GetMeasureVoltages(batteryZPDCRData, stepNumbers)
+    Set measureVoltages = GetMeasureVoltages(batteryZPDCRData, stepNumbers,hasBigZPDCR)
     
+    '获取放电工步指定时间点的电压值
     Dim dischargeVoltages As Collection
-    Set dischargeVoltages = GetDischargeVoltages(batteryZPDCRData, stepNumbers, targetDischargeTime)
+    Set dischargeVoltages = GetDischargeVoltages(batteryZPDCRData, stepNumbers, targetDischargeTime,hasBigZPDCR)
     
+    '获取放电工步的平均电流值
     Dim dischargeCurrents As Collection
     Set dischargeCurrents = GetDischargeCurrents(batteryZPDCRData, stepNumbers)
     
@@ -136,6 +222,8 @@ Private Function CalculateSingleSOCDCR(ByVal batteryZPDCRData As Collection, _
     Dim dcrResult As New Collection
     Dim i As Long
     For i = 1 To measureVoltages.Count
+        '使用DCR计算公式：(搁置电压 - 放电电压) / |放电电流| * 1000
+        '乘以1000是为了将单位转换为毫欧
         dcrResult.Add ((measureVoltages(i) - dischargeVoltages(i)) / Abs(dischargeCurrents(i))) * 1000
     Next i
     
@@ -153,7 +241,8 @@ End Function
 '      这个电压值将用于计算DCR
 '******************************************
 Private Function GetMeasureVoltages(ByVal batteryZPDCRData As Collection, _
-                                  ByVal stepNumbers As Collection) As Collection
+                                  ByVal stepNumbers As Collection, _
+                                  ByVal hasBigZPDCR as Boolean) As Collection
     
     On Error GoTo ErrorHandler
     
@@ -170,12 +259,58 @@ Private Function GetMeasureVoltages(ByVal batteryZPDCRData As Collection, _
     Dim voltageArray() As Double
     ReDim voltageArray(1 To maxPossibleCount)
     
+    '获取工步号
     Dim measureStepNo As Long
     Dim dischargeStepNo As Long
+    Dim largeZPMesureStepNo As Long
+    Dim largeZPDischargeStepNo As Long
     measureStepNo = stepNumbers("measureStepNo")
     dischargeStepNo = stepNumbers("dischargeStepNo")
     
-    '使用数组存储中间结果
+    Dim voltageCount As Long
+    
+    '如果是大中检,还需要提取大中检电压数据
+    If hasBigZPDCR Then
+        largeZPMesureStepNo = stepNumbers("largeZPMesureStepNo")
+        largeZPDischargeStepNo = stepNumbers("largeZPDischargeStepNo")
+        voltageCount = ExtractVoltageDataWithLargeZPDCR(batteryZPDCRData, measureStepNo, dischargeStepNo, _
+                                                       largeZPMesureStepNo, largeZPDischargeStepNo, voltageArray)
+    Else
+        '如果不是大中检,直接提取标准中检电压数据
+        voltageCount = ExtractVoltageData(batteryZPDCRData, measureStepNo, dischargeStepNo, voltageArray)
+    End If
+    
+    '将有效数据转换为Collection
+    Dim results As New Collection
+    If voltageCount > 0 Then
+        Dim i As Long
+        For i = 1 To voltageCount
+            results.Add voltageArray(i)
+        Next i
+    End If
+    
+    Set GetMeasureVoltages = results
+    Exit Function
+    
+ErrorHandler:
+    LogError "GetMeasureVoltages", Err.Description
+    Set GetMeasureVoltages = New Collection
+End Function
+
+'******************************************
+' 函数: ExtractVoltageData
+' 用途: 从电池数据中提取电压值
+' 参数:
+'   - batteryZPDCRData: 电池DCR数据
+'   - measureStepNo: 测量工步号
+'   - dischargeStepNo: 放电工步号
+' 返回: 包含电压数据的数组和数据计数
+'******************************************
+Private Function ExtractVoltageData(ByVal batteryZPDCRData As Collection, _
+                                  ByVal measureStepNo As Long, _
+                                  ByVal dischargeStepNo As Long, _
+                                  ByRef voltageArray() As Double) As Long
+    
     Dim lastVoltage As Double
     Dim voltageCount As Long
     voltageCount = 0
@@ -200,21 +335,72 @@ Private Function GetMeasureVoltages(ByVal batteryZPDCRData As Collection, _
         End With
     Next i
     
-    '将有效数据转换为Collection
-    Dim results As New Collection
-    If voltageCount > 0 Then
-        For i = 1 To voltageCount
-            results.Add voltageArray(i)
-        Next i
-    End If
-    
-    Set GetMeasureVoltages = results
-    Exit Function
-    
-ErrorHandler:
-    LogError "GetMeasureVoltages", Err.Description
-    Set GetMeasureVoltages = New Collection
+    ExtractVoltageData = voltageCount
 End Function
+
+'******************************************
+' 函数: ExtractVoltageDataWithLargeZPDCR
+' 用途: 从电池数据中提取标准中检和大中检的电压值
+' 参数:
+'   - batteryZPDCRData: 电池DCR数据集合
+'   - measureStepNo: 标准中检测量工步号
+'   - dischargeStepNo: 标准中检放电工步号
+'   - largeZPMesureStepNo: 大中检测量工步号
+'   - largeZPDischargeStepNo: 大中检放电工步号
+'   - voltageArray: 存储电压值的数组
+' 返回: 提取的有效电压数据个数
+'******************************************
+Private Function ExtractVoltageDataWithLargeZPDCR(ByVal batteryZPDCRData As Collection, _
+                                                  ByVal measureStepNo As Long, _
+                                                  ByVal dischargeStepNo As Long, _
+                                                  ByVal largeZPMesureStepNo As Long, _
+                                                  ByVal largeZPDischargeStepNo As Long, _
+                                                  ByRef voltageArray() As Double) As Long
+
+    '定义变量
+    Dim lastVoltage As Double    '存储最近一次的电压值
+    Dim voltageCount As Long     '有效电压数据计数
+    voltageCount = 0
+    Dim i As Long               '循环计数器
+    Dim currentStepNo As Long   '当前工步号
+    Dim prevStepNo As Long      '前一个工步号
+    
+    '遍历所有数据点
+    For i = 1 To batteryZPDCRData.Count
+        With batteryZPDCRData(i)
+            currentStepNo = .StepNo
+            
+            '处理标准中检数据
+            If currentStepNo = measureStepNo Then
+                '记录测量工步的电压值
+                lastVoltage = .Voltage
+            ElseIf currentStepNo = dischargeStepNo And i > 1 Then
+                '检查是否是测量工步后的放电工步
+                prevStepNo = batteryZPDCRData(i - 1).StepNo
+                If prevStepNo = measureStepNo Then
+                    voltageCount = voltageCount + 1
+                    voltageArray(voltageCount) = lastVoltage
+                End If
+            
+            '处理大中检数据
+            ElseIf currentStepNo = largeZPMesureStepNo Then
+                '记录大中检测量工步的电压值
+                lastVoltage = .Voltage
+            ElseIf currentStepNo = largeZPDischargeStepNo And i > 1 Then
+                '检查是否是大中检测量工步后的放电工步
+                prevStepNo = batteryZPDCRData(i - 1).StepNo
+                If prevStepNo = largeZPMesureStepNo Then
+                    voltageCount = voltageCount + 1
+                    voltageArray(voltageCount) = lastVoltage
+                End If
+            End If
+        End With
+    Next i
+    
+    '返回有效电压数据个数
+    ExtractVoltageDataWithLargeZPDCR = voltageCount
+End Function
+
 
 '******************************************
 ' 函数: GetDischargeVoltages
@@ -229,7 +415,8 @@ End Function
 '******************************************
 Private Function GetDischargeVoltages(ByVal batteryZPDCRData As Collection, _
                                     ByVal stepNumbers As Collection, _
-                                    ByVal targetDischargeTime As String) As Collection
+                                    ByVal targetDischargeTime As String, _
+                                    ByVal hasBigZPDCR as Boolean) As Collection
     
     On Error GoTo ErrorHandler
     
@@ -248,9 +435,58 @@ Private Function GetDischargeVoltages(ByVal batteryZPDCRData As Collection, _
     
     '缓存工步号
     Dim dischargeStepNo As Long
+    Dim largeZPDischargeStepNo As Long
     dischargeStepNo = stepNumbers("dischargeStepNo")
+    If hasBigZPDCR Then
+        largeZPDischargeStepNo = stepNumbers("largeZPDischargeStepNo")
+    End If
     
     '使用数组存储中间结果
+    Dim voltageCount As Long
+    voltageCount = 0
+    
+    '如果是大中检，还需要提取大中检放电电压数据
+    If hasBigZPDCR Then
+        voltageCount = ExtractDischargeVoltageDataWithLargeZPDCR(batteryZPDCRData, dischargeStepNo, largeZPDischargeStepNo, _
+                                                                 targetDischargeTime, voltageArray)
+    Else
+        '如果不是大中检,直接提取标准中检放电电压数据
+        voltageCount = ExtractDischargeVoltageData(batteryZPDCRData, dischargeStepNo, targetDischargeTime, voltageArray)
+    End If
+
+    '将有效数据转换为Collection
+    Dim results As New Collection
+    If voltageCount > 0 Then
+        Dim i As Long
+        For i = 1 To voltageCount
+            results.Add voltageArray(i)
+        Next i
+    End If
+    
+    Set GetDischargeVoltages = results
+    Exit Function
+    
+ErrorHandler:
+    LogError "GetDischargeVoltages", Err.Description
+    Set GetDischargeVoltages = New Collection
+End Function
+
+'添加新的函数：
+'******************************************
+' 函数: ExtractDischargeVoltageData
+' 用途: 从电池数据中提取指定时间点的放电电压值
+' 参数:
+'   - batteryZPDCRData: 电池DCR数据
+'   - dischargeStepNo: 放电工步号
+'   - targetDischargeTime: 目标放电时间
+'   - voltageArray: 存储电压值的数组
+' 返回: 提取的有效电压数据个数
+'******************************************
+Private Function ExtractDischargeVoltageData(ByVal batteryZPDCRData As Collection, _
+                                           ByVal dischargeStepNo As Long, _
+                                           ByVal targetDischargeTime As String, _
+                                           ByRef voltageArray() As Double) As Long
+    
     Dim voltageCount As Long
     voltageCount = 0
     
@@ -268,21 +504,47 @@ Private Function GetDischargeVoltages(ByVal batteryZPDCRData As Collection, _
         End With
     Next i
     
-    '将有效数据转换为Collection
-    Dim results As New Collection
-    If voltageCount > 0 Then
-        For i = 1 To voltageCount
-            results.Add voltageArray(i)
-        Next i
-    End If
-    
-    Set GetDischargeVoltages = results
-    Exit Function
-    
-ErrorHandler:
-    LogError "GetDischargeVoltages", Err.Description
-    Set GetDischargeVoltages = New Collection
+    ExtractDischargeVoltageData = voltageCount
 End Function
+
+'******************************************
+' 函数: ExtractDischargeVoltageDataWithLargeZPDCR
+' 用途: 从电池数据中提取指定时间点的放电电压值
+' 参数:
+'   - batteryZPDCRData: 电池DCR数据
+'   - dischargeStepNo: 放电工步号
+'   - targetDischargeTime: 目标放电时间
+'   - voltageArray: 存储电压值的数组
+' 返回: 提取的有效电压数据个数
+'******************************************
+Private Function ExtractDischargeVoltageDataWithLargeZPDCR(ByVal batteryZPDCRData As Collection, _
+                                           ByVal dischargeStepNo As Long, _
+                                           ByVal largeZPDischargeStepNo As Long, _
+                                           ByVal targetDischargeTime As String, _
+                                           ByRef voltageArray() As Double) As Long
+    
+    Dim voltageCount As Long
+    voltageCount = 0
+    
+    Dim i As Long
+    Dim currentStepNo As Long
+    
+    For i = 1 To batteryZPDCRData.Count
+        With batteryZPDCRData(i)
+            currentStepNo = .StepNo
+            
+            If currentStepNo = dischargeStepNo Or currentStepNo = largeZPDischargeStepNo Then
+                If .StepTime = targetDischargeTime Then
+                    voltageCount = voltageCount + 1
+                    voltageArray(voltageCount) =.Voltage
+                End If
+            End if
+        End With
+    Next i
+    
+    ExtractDischargeVoltageDataWithLargeZPDCR = voltageCount
+End Function
+
 
 '******************************************
 ' 函数: GetDischargeCurrents
