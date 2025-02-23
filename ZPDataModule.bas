@@ -492,6 +492,10 @@ Private Sub FillBasicDataWithBaseValues(ByVal basicDataTable As ListObject, _
     '计算所有中检点的结果
     Dim capacityResults As Collection
     Set capacityResults = CalculateZPResults(cycleInterval, calcMethod, batteryZPData)
+    '如果没有计算结果，直接返回
+    If capacityResults.Count = 0 Then
+        Exit Sub
+    End If
     
     '获取基准值（第一组数据的容量和能量）
     Dim baseCapacity As Double
