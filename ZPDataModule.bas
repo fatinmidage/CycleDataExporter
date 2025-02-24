@@ -16,7 +16,7 @@ Private Const CHART_HEIGHT As Long = 300   '图表默认高度（以磅为单位
 '******************************************
 ' 函数: OutputZPData
 ' 用途: 输出中检数据到工作表
-' 参数: 
+' 参数:
 '   - ws: 目标工作表
 '   - rawData: 原始数据集合，包含容量和DCIR数据
 '   - cycleConfig: 循环配置，包含中检间隔、计算方法等
@@ -68,8 +68,8 @@ Public Function OutputZPData(ByVal ws As Worksheet, _
         End If
         
         '更新行位置（移动到下一组）
-        If Not batteryTables Is Nothing And batteryTables.Count > 0 Then
-            currentRow = currentRow + batteryTables(batteryTables.Count).ListRows.Count + 3
+        If Not batteryTables Is Nothing And batteryTables.count > 0 Then
+            currentRow = currentRow + batteryTables(batteryTables.count).ListRows.count + 3
         End If
     Next i
     
@@ -108,7 +108,7 @@ Private Function ProcessBatteryData(ByVal ws As Worksheet, _
                                   ByVal batteryNames As Collection, _
                                   ByVal batteryIndex As Long, _
                                   ByVal currentRow As Long, _
-                                  ByVal currentColumn As Long) As Collection
+                                  currentColumn As Long) As Collection
     
     On Error GoTo ErrorHandler
     
@@ -128,7 +128,7 @@ Private Function ProcessBatteryData(ByVal ws As Worksheet, _
     
     '创建和填充DCIR表
     Dim dcirTable As ListObject
-    Set dcirTable = CreateDCIRTable(ws, currentRow, currentColumn, basicDataTable.ListRows.Count)
+    Set dcirTable = CreateDCIRTable(ws, currentRow, currentColumn, basicDataTable.ListRows.count)
     tableCollection.Add dcirTable
     
     '填充DCIR数据
@@ -136,7 +136,7 @@ Private Function ProcessBatteryData(ByVal ws As Worksheet, _
     
     '创建和填充DCIR Rise表
     Dim dcirRiseTable As ListObject
-    Set dcirRiseTable = CreateDCIRRiseTable(ws, currentRow, currentColumn, basicDataTable.ListRows.Count, dcirTable)
+    Set dcirRiseTable = CreateDCIRRiseTable(ws, currentRow, currentColumn, basicDataTable.ListRows.count, dcirTable)
     tableCollection.Add dcirRiseTable
     
     Set ProcessBatteryData = tableCollection
@@ -170,11 +170,11 @@ Private Function CreateBasicDataTable(ByVal ws As Worksheet, _
     
     '设置列标题
     With basicDataTable.HeaderRowRange
-        .Cells(1, 1).Value = "循环圈数"
-        .Cells(1, 2).Value = "容量/Ah"
-        .Cells(1, 3).Value = "能量/Wh"
-        .Cells(1, 4).Value = "容量保持率"
-        .Cells(1, 5).Value = "能量保持率"
+        .Cells(1, 1).value = "循环圈数"
+        .Cells(1, 2).value = "容量/Ah"
+        .Cells(1, 3).value = "能量/Wh"
+        .Cells(1, 4).value = "容量保持率"
+        .Cells(1, 5).value = "能量保持率"
     End With
     
     '填充数据
@@ -210,9 +210,9 @@ Private Function CreateDCIRTable(ByVal ws As Worksheet, _
     
     '设置列标题
     With dcirTable.HeaderRowRange
-        .Cells(1, 1).Value = "90%"
-        .Cells(1, 2).Value = "50%"
-        .Cells(1, 3).Value = "10%"
+        .Cells(1, 1).value = "90%"
+        .Cells(1, 2).value = "50%"
+        .Cells(1, 3).value = "10%"
     End With
     
     Set CreateDCIRTable = dcirTable
@@ -256,38 +256,41 @@ Private Function CreateDCIRRiseTable(ByVal ws As Worksheet, _
     
     '设置列标题
     With dcirRiseTable.HeaderRowRange
-        .Cells(1, 1).Value = "90%"
-        .Cells(1, 2).Value = "50%"
-        .Cells(1, 3).Value = "10%"
+        .Cells(1, 1).value = "90%"
+        .Cells(1, 2).value = "50%"
+        .Cells(1, 3).value = "10%"
     End With
     
     '计算并填充DCR增长率
-    If Not dcirTable Is Nothing And dcirTable.ListRows.Count > 0 Then
+    If Not dcirTable Is Nothing And dcirTable.ListRows.count > 0 Then
         Dim i As Long, j As Long
         Dim baseValue As Double
         
         '遍历每一列（90%、50%、10%）
         For j = 1 To 3
             '获取基准值（第一行的值）
-            baseValue = CDbl(dcirTable.ListColumns(j).Range(2).Value)
+            baseValue = CDbl(dcirTable.ListColumns(j).Range(2).value)
             
             '计算每一行的增长率
-            For i = 1 To dcirTable.ListRows.Count
+            For i = 1 To dcirTable.ListRows.count
                 If baseValue > 0 Then
                     Dim currentValue As Double
-                    currentValue = CDbl(dcirTable.ListColumns(j).Range(i + 1).Value)
-                    if currentValue > 0 Then
-                        dcirRiseTable.ListColumns(j).Range(i + 1).Value = Format((currentValue - baseValue) / baseValue, "0.00%")
+                    currentValue = CDbl(dcirTable.ListColumns(j).Range(i + 1).value)
+                    If currentValue > 0 Then
+                        dcirRiseTable.ListColumns(j).Range(i + 1).value = Format((currentValue - baseValue) / baseValue, "0.00%")
                     End If
                 End If
             Next i
         Next j
     End If
     
-    '设置格式
-    With dcirRiseTable.DataBodyRange
-        .HorizontalAlignment = xlCenter
-    End With
+    ' 设置DCIR Rise表格数据区域的格式
+    '添加空值检查
+    If Not dcirRiseTable.DataBodyRange Is Nothing Then
+        With dcirRiseTable.DataBodyRange
+            .HorizontalAlignment = xlCenter
+        End With
+    End If
     
     Set CreateDCIRRiseTable = dcirRiseTable
     Exit Function
@@ -303,7 +306,7 @@ End Function
 '******************************************
 Private Function GetBatteryCount(ByVal rawData As Collection) As Long
     On Error Resume Next
-    GetBatteryCount = rawData(2).Count
+    GetBatteryCount = rawData(2).count
     If Err.Number <> 0 Then GetBatteryCount = 0
 End Function
 
@@ -313,8 +316,8 @@ End Function
 '******************************************
 Private Function GetLastTableRowCount(ByVal tableCollection As Collection) As Long
     On Error Resume Next
-    If tableCollection.Count > 0 Then
-        GetLastTableRowCount = tableCollection(tableCollection.Count).ListRows.Count
+    If tableCollection.count > 0 Then
+        GetLastTableRowCount = tableCollection(tableCollection.count).ListRows.count
     Else
         GetLastTableRowCount = 0
     End If
@@ -343,7 +346,7 @@ Private Function IsValidData(ByVal rawData As Collection) As Boolean
     Dim zpDataCollection As Collection
     Set zpDataCollection = rawData(2)
     
-    If zpDataCollection Is Nothing Or zpDataCollection.Count = 0 Then
+    If zpDataCollection Is Nothing Or zpDataCollection.count = 0 Then
         IsValidData = False
         Exit Function
     End If
@@ -369,22 +372,22 @@ Private Sub OutputTableHeader(ByVal ws As Worksheet, _
     '设置标题行
     With ws.Range(ws.Cells(currentRow, currentColumn), ws.Cells(currentRow, currentColumn + 4))
         .Merge
-        .NumberFormat = "@" '设置单元格格式为文本
-        .Value = batteryName
+        .numberFormat = "@" '设置单元格格式为文本
+        .value = batteryName
         ApplyTitleStyle ws.Range(ws.Cells(currentRow, currentColumn), ws.Cells(currentRow, currentColumn + 4))
     End With
     
     'DCIR标题
     With ws.Range(ws.Cells(currentRow, currentColumn + 5), ws.Cells(currentRow, currentColumn + 7))
         .Merge
-        .Value = "DCIR(mΩ),30s"
+        .value = "DCIR(mΩ),30s"
         ApplyTitleStyle ws.Range(ws.Cells(currentRow, currentColumn + 5), ws.Cells(currentRow, currentColumn + 7))
     End With
     
     'DC-IR Rise标题
     With ws.Range(ws.Cells(currentRow, currentColumn + 8), ws.Cells(currentRow, currentColumn + 10))
         .Merge
-        .Value = "DC-IR Rise(%),30s"
+        .value = "DC-IR Rise(%),30s"
         ApplyTitleStyle ws.Range(ws.Cells(currentRow, currentColumn + 8), ws.Cells(currentRow, currentColumn + 10))
     End With
 End Sub
@@ -398,16 +401,16 @@ Private Function GetBatteryName(ByVal batteryIndex As Long, _
                               ByVal batteryNames As Collection) As String
     On Error Resume Next
     
-    Dim batteryInfo As BatteryInfo
+    Dim batteryInfo As batteryInfo
     For Each batteryInfo In batteryNames
-        If batteryInfo.Index = batteryIndex Then
+        If batteryInfo.index = batteryIndex Then
             GetBatteryName = batteryInfo.Name
             Exit Function
         End If
     Next batteryInfo
     
     If Err.Number <> 0 Then
-        GetBatteryName = batteryZPData(1).BatteryCode
+        GetBatteryName = batteryZPData(1).batteryCode
     End If
 End Function
 
@@ -427,7 +430,7 @@ End Sub
 '******************************************
 ' 函数: FillBasicData
 ' 用途: 填充基本数据到ListObject
-' 参数: 
+' 参数:
 '   - basicDataTable: 基本数据表格对象
 '   - batteryZPData: 电池中检数据集合
 '   - baseCapacity: 基准容量
@@ -441,14 +444,14 @@ Private Sub FillBasicData(ByVal basicDataTable As ListObject, _
     Dim j As Long
     Dim zpData As CBatteryCycleRaw
     
-    For j = 1 To batteryZPData.Count
+    For j = 1 To batteryZPData.count
         Set zpData = batteryZPData(j)
         With basicDataTable.ListRows.Add
             .Range(1) = (j - 1) * 75  '循环圈数
-            .Range(2) = Format(zpData.Capacity, "0.000000")
-            .Range(3) = Format(zpData.Energy, "0.0000")
-            .Range(4) = Format(zpData.Capacity / baseCapacity, "0.00%")
-            .Range(5) = Format(zpData.Energy / baseEnergy, "0.00%")
+            .Range(2) = Format(zpData.capacity, "0.000000")
+            .Range(3) = Format(zpData.energy, "0.0000")
+            .Range(4) = Format(zpData.capacity / baseCapacity, "0.00%")
+            .Range(5) = Format(zpData.energy / baseEnergy, "0.00%")
         End With
     Next j
 End Sub
@@ -456,7 +459,7 @@ End Sub
 '******************************************
 ' 过程: FillBasicDataWithBaseValues
 ' 用途: 使用基准值填充基本数据到ListObject
-' 参数: 
+' 参数:
 '   - basicDataTable: 基本数据表格对象
 '   - batteryZPData: 电池中检数据集合
 '   - cycleConfig: 循环配置集合
@@ -493,7 +496,7 @@ Private Sub FillBasicDataWithBaseValues(ByVal basicDataTable As ListObject, _
     Dim capacityResults As Collection
     Set capacityResults = CalculateZPResults(cycleInterval, calcMethod, batteryZPData)
     '如果没有计算结果，直接返回
-    If capacityResults.Count = 0 Then
+    If capacityResults.count = 0 Then
         Exit Sub
     End If
     
@@ -509,7 +512,7 @@ Private Sub FillBasicDataWithBaseValues(ByVal basicDataTable As ListObject, _
     Dim i As Long
     Dim currentResult As Collection
     
-    For i = 1 To capacityResults.Count
+    For i = 1 To capacityResults.count
         Set currentResult = capacityResults(i)
         With basicDataTable.ListRows.Add
             .Range(1) = currentResult(1)  '循环圈数
@@ -544,12 +547,12 @@ Private Function CalculateZPResults(ByVal cycleInterval As Long, _
     
     '如果是"仅中检一次"方法,直接返回原始数据
     If calcMethod = "仅中检一次" Then
-        For i = 1 To batteryZPData.Count
+        For i = 1 To batteryZPData.count
             Dim singleResult As New Collection
             With batteryZPData(i)
                 singleResult.Add (i - 1) * cycleInterval  '循环圈数
-                singleResult.Add .Capacity                '容量
-                singleResult.Add .Energy                  '能量
+                singleResult.Add .capacity                '容量
+                singleResult.Add .energy                  '能量
             End With
             results.Add singleResult
         Next i
@@ -558,7 +561,7 @@ Private Function CalculateZPResults(ByVal cycleInterval As Long, _
     ElseIf calcMethod = "三圈中检求平均值" Then
         '计算可以完整计算平均值的组数
         Dim completeGroups As Long
-        completeGroups = batteryZPData.Count \ 3
+        completeGroups = batteryZPData.count \ 3
         
         Dim j As Long
         Dim avgResult As Collection
@@ -574,8 +577,8 @@ Private Function CalculateZPResults(ByVal cycleInterval As Long, _
             '计算三次中检的平均值
             For j = 0 To 2
                 With batteryZPData((i - 1) * 3 + j + 1)
-                    sumCapacity = sumCapacity + .Capacity
-                    sumEnergy = sumEnergy + .Energy
+                    sumCapacity = sumCapacity + .capacity
+                    sumEnergy = sumEnergy + .energy
                 End With
             Next j
             
@@ -618,14 +621,14 @@ Private Sub FillDCIRData(ByVal dcirTable As ListObject, _
     
     '一次性获取所有数据
     Dim tableData() As Variant
-    ReDim tableData(1 To dataRange.Rows.Count, 1 To 3)
+    ReDim tableData(1 To dataRange.Rows.count, 1 To 3)
     
     '填充数据数组
     FillDCIRDataArray tableData, dcirRiseData
     
     '一次性写入表格
     If Not IsArrayEmpty(tableData) Then
-        dataRange.Value = tableData
+        dataRange.value = tableData
         FormatDCIRData dataRange
     End If
     
@@ -656,7 +659,7 @@ Private Function ValidateDCIRInputs(ByVal dcirTable As ListObject, _
     If batteryZPDCRData Is Nothing Then Exit Function
     If cycleConfig Is Nothing Then Exit Function
     If dcirTable.DataBodyRange Is Nothing Then Exit Function
-    If dcirTable.DataBodyRange.Rows.Count = 0 Then Exit Function
+    If dcirTable.DataBodyRange.Rows.count = 0 Then Exit Function
     
     ValidateDCIRInputs = True
     Exit Function
@@ -682,13 +685,13 @@ Private Sub FillDCIRDataArray(ByRef tableData() As Variant, _
     
     '遍历每个SOC点的数据
     For socIndex = 1 To 3
-        If socIndex <= dcirRiseData.Count Then
+        If socIndex <= dcirRiseData.count Then
             Set dcrValues = dcirRiseData(socIndex)
             
             '填充当前SOC点的所有值
             If Not dcrValues Is Nothing Then
                 For rowIndex = 1 To UBound(tableData, 1)
-                    If rowIndex <= dcrValues.Count Then
+                    If rowIndex <= dcrValues.count Then
                         tableData(rowIndex, socIndex) = Format(dcrValues(rowIndex), "0.000000")
                     End If
                 Next rowIndex
@@ -710,7 +713,7 @@ Private Sub FormatDCIRData(ByVal dataRange As Range)
     On Error GoTo ErrorHandler
     
     With dataRange
-        .NumberFormat = "0.000000"
+        .numberFormat = "0.000000"
         .HorizontalAlignment = xlCenter
     End With
     
@@ -750,9 +753,11 @@ End Function
 ' 过程: ResizeChart
 ' 用途: 调整图表大小
 '******************************************
-Private Sub ResizeChart(ByVal chartObject As ChartObject)
+Private Sub ResizeChart(ByVal chartObject As chartObject)
     With chartObject
-        .Width = CHART_WIDTH
-        .Height = CHART_HEIGHT
+        .width = CHART_WIDTH
+        .height = CHART_HEIGHT
     End With
 End Sub
+
+

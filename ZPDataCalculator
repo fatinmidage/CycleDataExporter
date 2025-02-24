@@ -114,7 +114,7 @@ Private Function ProcessStandardZPDCR(ByVal batteryZPDCRData As Collection, _
         
         '计算当前SOC点的DCR值
         Dim dcrResult As Collection
-        Set dcrResult = CalculateSingleSOCDCR(batteryZPDCRData, stepNumbers, targetDischargeTime,cycleConfig(FIELD_IS_LARGE_CHECK))
+        Set dcrResult = CalculateSingleSOCDCR(batteryZPDCRData, stepNumbers, targetDischargeTime, cycleConfig(FIELD_IS_LARGE_CHECK))
         results.Add dcrResult
         
 NextSOC:
@@ -196,7 +196,7 @@ End Function
 '   - targetDischargeTime: 目标放电时间
 '   - hasBigZPDCR: 是否为大中检模式
 ' 返回: Collection，包含计算得到的DCR值
-' 说明: 
+' 说明:
 '   1. 首先获取搁置电压、放电电压和放电电流
 '   2. 使用公式: DCR = (搁置电压 - 放电电压) / |放电电流| * 1000
 '   3. 结果单位为mΩ(毫欧)
@@ -204,15 +204,15 @@ End Function
 Private Function CalculateSingleSOCDCR(ByVal batteryZPDCRData As Collection, _
                                      ByVal stepNumbers As Collection, _
                                      ByVal targetDischargeTime As String, _
-                                     ByVal hasBigZPDCR as Boolean) As Collection
+                                     ByVal hasBigZPDCR As Boolean) As Collection
     
     '获取搁置工步的电压值
     Dim measureVoltages As Collection
-    Set measureVoltages = GetMeasureVoltages(batteryZPDCRData, stepNumbers,hasBigZPDCR)
+    Set measureVoltages = GetMeasureVoltages(batteryZPDCRData, stepNumbers, hasBigZPDCR)
     
     '获取放电工步指定时间点的电压值
     Dim dischargeVoltages As Collection
-    Set dischargeVoltages = GetDischargeVoltages(batteryZPDCRData, stepNumbers, targetDischargeTime,hasBigZPDCR)
+    Set dischargeVoltages = GetDischargeVoltages(batteryZPDCRData, stepNumbers, targetDischargeTime, hasBigZPDCR)
     
     '获取放电工步的平均电流值
     Dim dischargeCurrents As Collection
@@ -221,7 +221,7 @@ Private Function CalculateSingleSOCDCR(ByVal batteryZPDCRData As Collection, _
     '计算DCR值
     Dim dcrResult As New Collection
     Dim i As Long
-    For i = 1 To measureVoltages.Count
+    For i = 1 To measureVoltages.count
         '使用DCR计算公式：(搁置电压 - 放电电压) / |放电电流| * 1000
         '乘以1000是为了将单位转换为毫欧
         dcrResult.Add ((measureVoltages(i) - dischargeVoltages(i)) / Abs(dischargeCurrents(i))) * 1000
@@ -242,19 +242,19 @@ End Function
 '******************************************
 Private Function GetMeasureVoltages(ByVal batteryZPDCRData As Collection, _
                                   ByVal stepNumbers As Collection, _
-                                  ByVal hasBigZPDCR as Boolean) As Collection
+                                  ByVal hasBigZPDCR As Boolean) As Collection
     
     On Error GoTo ErrorHandler
     
     '验证输入参数
-    If batteryZPDCRData Is Nothing Or batteryZPDCRData.Count = 0 Then
+    If batteryZPDCRData Is Nothing Or batteryZPDCRData.count = 0 Then
         Set GetMeasureVoltages = New Collection
         Exit Function
     End If
     
     '预分配数组大小（预估最大可能的电压值数量）
     Dim maxPossibleCount As Long
-    maxPossibleCount = batteryZPDCRData.Count \ 2  '假设最多有一半的数据是测量点
+    maxPossibleCount = batteryZPDCRData.count \ 2  '假设最多有一半的数据是测量点
     
     Dim voltageArray() As Double
     ReDim voltageArray(1 To maxPossibleCount)
@@ -319,14 +319,14 @@ Private Function ExtractVoltageData(ByVal batteryZPDCRData As Collection, _
     Dim currentStepNo As Long
     Dim prevStepNo As Long
     
-    For i = 1 To batteryZPDCRData.Count
+    For i = 1 To batteryZPDCRData.count
         With batteryZPDCRData(i)
-            currentStepNo = .StepNo
+            currentStepNo = .stepNo
             
             If currentStepNo = measureStepNo Then
-                lastVoltage = .Voltage
+                lastVoltage = .voltage
             ElseIf currentStepNo = dischargeStepNo And i > 1 Then
-                prevStepNo = batteryZPDCRData(i - 1).StepNo
+                prevStepNo = batteryZPDCRData(i - 1).stepNo
                 If prevStepNo = measureStepNo Then
                     voltageCount = voltageCount + 1
                     voltageArray(voltageCount) = lastVoltage
@@ -366,17 +366,17 @@ Private Function ExtractVoltageDataWithLargeZPDCR(ByVal batteryZPDCRData As Coll
     Dim prevStepNo As Long      '前一个工步号
     
     '遍历所有数据点
-    For i = 1 To batteryZPDCRData.Count
+    For i = 1 To batteryZPDCRData.count
         With batteryZPDCRData(i)
-            currentStepNo = .StepNo
+            currentStepNo = .stepNo
             
             '处理标准中检数据
             If currentStepNo = measureStepNo Then
                 '记录测量工步的电压值
-                lastVoltage = .Voltage
+                lastVoltage = .voltage
             ElseIf currentStepNo = dischargeStepNo And i > 1 Then
                 '检查是否是测量工步后的放电工步
-                prevStepNo = batteryZPDCRData(i - 1).StepNo
+                prevStepNo = batteryZPDCRData(i - 1).stepNo
                 If prevStepNo = measureStepNo Then
                     voltageCount = voltageCount + 1
                     voltageArray(voltageCount) = lastVoltage
@@ -385,10 +385,10 @@ Private Function ExtractVoltageDataWithLargeZPDCR(ByVal batteryZPDCRData As Coll
             '处理大中检数据
             ElseIf currentStepNo = largeZPMesureStepNo Then
                 '记录大中检测量工步的电压值
-                lastVoltage = .Voltage
+                lastVoltage = .voltage
             ElseIf currentStepNo = largeZPDischargeStepNo And i > 1 Then
                 '检查是否是大中检测量工步后的放电工步
-                prevStepNo = batteryZPDCRData(i - 1).StepNo
+                prevStepNo = batteryZPDCRData(i - 1).stepNo
                 If prevStepNo = largeZPMesureStepNo Then
                     voltageCount = voltageCount + 1
                     voltageArray(voltageCount) = lastVoltage
@@ -416,19 +416,19 @@ End Function
 Private Function GetDischargeVoltages(ByVal batteryZPDCRData As Collection, _
                                     ByVal stepNumbers As Collection, _
                                     ByVal targetDischargeTime As String, _
-                                    ByVal hasBigZPDCR as Boolean) As Collection
+                                    ByVal hasBigZPDCR As Boolean) As Collection
     
     On Error GoTo ErrorHandler
     
     '验证输入参数
-    If batteryZPDCRData Is Nothing Or batteryZPDCRData.Count = 0 Then
+    If batteryZPDCRData Is Nothing Or batteryZPDCRData.count = 0 Then
         Set GetDischargeVoltages = New Collection
         Exit Function
     End If
     
     '预分配数组大小（预估最大可能的电压值数量）
     Dim maxPossibleCount As Long
-    maxPossibleCount = batteryZPDCRData.Count \ 2  '假设最多有一半的数据是放电点
+    maxPossibleCount = batteryZPDCRData.count \ 2  '假设最多有一半的数据是放电点
     
     Dim voltageArray() As Double
     ReDim voltageArray(1 To maxPossibleCount)
@@ -493,13 +493,13 @@ Private Function ExtractDischargeVoltageData(ByVal batteryZPDCRData As Collectio
     Dim i As Long
     Dim currentStepNo As Long
     
-    For i = 1 To batteryZPDCRData.Count
+    For i = 1 To batteryZPDCRData.count
         With batteryZPDCRData(i)
-            currentStepNo = .StepNo
+            currentStepNo = .stepNo
             
-            If currentStepNo = dischargeStepNo And .StepTime = targetDischargeTime Then
+            If currentStepNo = dischargeStepNo And .stepTime = targetDischargeTime Then
                 voltageCount = voltageCount + 1
-                voltageArray(voltageCount) = .Voltage
+                voltageArray(voltageCount) = .voltage
             End If
         End With
     Next i
@@ -529,16 +529,16 @@ Private Function ExtractDischargeVoltageDataWithLargeZPDCR(ByVal batteryZPDCRDat
     Dim i As Long
     Dim currentStepNo As Long
     
-    For i = 1 To batteryZPDCRData.Count
+    For i = 1 To batteryZPDCRData.count
         With batteryZPDCRData(i)
-            currentStepNo = .StepNo
+            currentStepNo = .stepNo
             
             If currentStepNo = dischargeStepNo Or currentStepNo = largeZPDischargeStepNo Then
-                If .StepTime = targetDischargeTime Then
+                If .stepTime = targetDischargeTime Then
                     voltageCount = voltageCount + 1
-                    voltageArray(voltageCount) =.Voltage
+                    voltageArray(voltageCount) = .voltage
                 End If
-            End if
+            End If
         End With
     Next i
     
@@ -562,14 +562,14 @@ Private Function GetDischargeCurrents(ByVal batteryZPDCRData As Collection, _
     On Error GoTo ErrorHandler
     
     '验证输入参数
-    If batteryZPDCRData Is Nothing Or batteryZPDCRData.Count = 0 Then
+    If batteryZPDCRData Is Nothing Or batteryZPDCRData.count = 0 Then
         Set GetDischargeCurrents = New Collection
         Exit Function
     End If
     
     '预分配数组大小（预估最大可能的电流值数量）
     Dim maxPossibleCount As Long
-    maxPossibleCount = batteryZPDCRData.Count \ 2  '假设最多有一半的数据是放电点
+    maxPossibleCount = batteryZPDCRData.count \ 2  '假设最多有一半的数据是放电点
     
     Dim currentArray() As Double
     ReDim currentArray(1 To maxPossibleCount)
@@ -588,12 +588,12 @@ Private Function GetDischargeCurrents(ByVal batteryZPDCRData As Collection, _
     Dim count As Long
     Dim isInDischargeStep As Boolean
     
-    For i = 1 To batteryZPDCRData.Count
+    For i = 1 To batteryZPDCRData.count
         With batteryZPDCRData(i)
-            currentStepNo = .StepNo
+            currentStepNo = .stepNo
             
             If currentStepNo = dischargeStepNo Then
-                totalCurrent = totalCurrent + Abs(.Current)
+                totalCurrent = totalCurrent + Abs(.current)
                 count = count + 1
                 isInDischargeStep = True
             ElseIf isInDischargeStep Then
@@ -638,3 +638,5 @@ End Function
 Private Sub LogError(ByVal functionName As String, ByVal errorDescription As String)
     Debug.Print Now & " - " & functionName & " error: " & errorDescription
 End Sub
+
+

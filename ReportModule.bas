@@ -1,7 +1,7 @@
 '******************************************
 ' 函数: GetFileNamesFromTable
 ' 用途: 从文件信息表中获取指定序号的文件名和报告标题
-' 参数: 
+' 参数:
 '   - ws: 工作表对象
 '   - reportIndex: 报告序号
 ' 返回: Collection对象，包含所有文件名和报告标题
@@ -19,10 +19,10 @@ Private Function GetFileNamesFromTable(ByVal ws As Worksheet, ByVal reportIndex 
     
     '根据序号获取对应行的数据
     With filesTable.ListRows(reportIndex)
-        fileNames.Add .Range.Cells(1, filesTable.ListColumns("输入循环数据的文件名").Index).Value, "cyclesData"
-        fileNames.Add .Range.Cells(1, filesTable.ListColumns("输入中检容量数据的文件名").Index).Value, "zp"
-        fileNames.Add .Range.Cells(1, filesTable.ListColumns("输入中检DCR数据的文件名").Index).Value, "zpDCR"
-        fileNames.Add .Range.Cells(1, filesTable.ListColumns("输出的测试报告标题").Index).Value, "reportTitle"
+        fileNames.Add .Range.Cells(1, filesTable.ListColumns("输入循环数据的文件名").index).value, "cyclesData"
+        fileNames.Add .Range.Cells(1, filesTable.ListColumns("输入中检容量数据的文件名").index).value, "zp"
+        fileNames.Add .Range.Cells(1, filesTable.ListColumns("输入中检DCR数据的文件名").index).value, "zpDCR"
+        fileNames.Add .Range.Cells(1, filesTable.ListColumns("输出的测试报告标题").index).value, "reportTitle"
     End With
     
     Set GetFileNamesFromTable = fileNames
@@ -31,7 +31,7 @@ End Function
 '******************************************
 ' 函数: GetRawDataFromFiles
 ' 用途: 从文件中获取原始数据
-' 参数: 
+' 参数:
 '   - fileNames: 包含所有文件名的Collection对象
 ' 返回: Collection对象，包含所有原始数据
 '******************************************
@@ -90,7 +90,7 @@ Public Sub GenerateReport()
     
     '获取报告的序号
     Dim reportIndex As Variant
-    reportIndex = ws.Cells(3, 9).Value
+    reportIndex = ws.Cells(3, 9).value
     
     '获取文件名集合
     Dim fileNames As Collection
@@ -109,7 +109,7 @@ Public Sub GenerateReport()
     Set commonConfig = ReadCommonConfig()
     '获取报告名称
     Dim reportName As String
-    reportName = fileNames(fileNames.Count)
+    reportName = fileNames(fileNames.count)
 
     '获取电池名称
     Dim batteryNames As Collection
@@ -168,12 +168,12 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     
     If ws Is Nothing Then
         '如果工作表不存在，创建新工作表
-        Set ws = wb.Worksheets.Add(After:=wb.Sheets(wb.Sheets.Count))
+        Set ws = wb.Worksheets.Add(After:=wb.Sheets(wb.Sheets.count))
         ws.Name = wsName
     Else
         '如果工作表已存在，清空内容
         ws.Cells.Clear
-        Dim chartObj As ChartObject
+        Dim chartObj As chartObject
         For Each chartObj In ws.ChartObjects
             chartObj.Delete
         Next chartObj
@@ -188,7 +188,7 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     
     '添加循环数据
     Set cycleDataTables = OutputCycleData(ws, rawData, cycleConfig, batteryNames)
-    If cycleDataTables.Count = 0 Then
+    If cycleDataTables.count = 0 Then
         MsgBox "输出循环数据失败！", vbExclamation
         OutputReport = False
         Exit Function
@@ -197,7 +197,7 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     '添加中检数据
     Dim zpTables As Collection
     Set zpTables = OutputZPData(ws, rawData, cycleConfig, batteryNames, nextRow)
-    If zpTables.Count = 0 Then
+    If zpTables.count = 0 Then
         MsgBox "输出中检数据失败！", vbExclamation
         OutputReport = False
         Exit Function
@@ -206,9 +206,9 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     '更新nextRow（使用最后一个表格的最后一行）
     Dim lastTable As ListObject
     Dim lastTableCollection As Collection
-    Set lastTableCollection = zpTables(zpTables.Count)
-    Set lastTable = lastTableCollection(lastTableCollection.Count)
-    nextRow = lastTable.Range.Row + lastTable.Range.Rows.Count + 1
+    Set lastTableCollection = zpTables(zpTables.count)
+    Set lastTable = lastTableCollection(lastTableCollection.count)
+    nextRow = lastTable.Range.row + lastTable.Range.Rows.count + 1
     
     '创建图表
     Dim chartRow As Long
@@ -298,7 +298,7 @@ Private Sub SetupHeader(ByVal ws As Worksheet, ByVal reportName As String)
     '设置标题
     With ws.Range(ws.Cells(1, 3), ws.Cells(1, 13))
         .Merge
-        .Value = reportName
+        .value = reportName
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
         .Font.Name = "微软雅黑"
@@ -309,7 +309,7 @@ Private Sub SetupHeader(ByVal ws As Worksheet, ByVal reportName As String)
     
     '设置"测试方法:"标签
     With ws.Cells(2, 2)
-        .Value = "1.测试方法:"
+        .value = "1.测试方法:"
         .Font.Bold = True
         .Font.Name = "微软雅黑"
         .Font.Size = 10
@@ -323,7 +323,7 @@ End Sub
 '******************************************
 Private Function SetupMainTable(ByVal ws As Worksheet, ByVal commonConfig As Collection) As Long
     Dim lastRow As Long
-    lastRow = 2 + commonConfig("StepDetails").Count
+    lastRow = 2 + commonConfig("StepDetails").count
     
     '设置表格结构
     SetupTableStructure ws, lastRow
@@ -354,7 +354,7 @@ End Sub
 '******************************************
 ' 函数: SetupBasicInfo
 ' 用途: 设置基本信息区域
-' 参数: 
+' 参数:
 '   - ws: 工作表对象
 '   - commonConfig: 公共配置集合
 '   - lastRow: 上一个表格的最后一行
@@ -386,14 +386,14 @@ Private Function ValidateRawData(ByVal rawData As Collection) As Boolean
     On Error Resume Next
     
     '检查必要的数据集是否存在
-    If rawData.Count < 3 Then
+    If rawData.count < 3 Then
         MsgBox "缺少必要的数据!", vbExclamation
         ValidateRawData = False
         Exit Function
     End If
     
     '检查每个数据集的有效性
-    If rawData("cyclesData").Count = 0 Then
+    If rawData("cyclesData").count = 0 Then
         MsgBox "循环数据为空!", vbExclamation
         ValidateRawData = False
         Exit Function
@@ -417,20 +417,20 @@ Private Function GetBatteryNames(ByVal rawData As Collection, _
     
     On Error GoTo ErrorHandler
     
-    dim batteryCodeCollection as new collection
-    dim batteryInfo as  BatteryInfo
-    dim batteryCount as long
-    batteryCount = rawData(1).Count
+    Dim batteryCodeCollection As New Collection
+    Dim batteryInfo As batteryInfo
+    Dim batteryCount As Long
+    batteryCount = rawData(1).count
 
-    for i = 1 to batteryCount
-        set batteryInfo = new BatteryInfo
-        batteryInfo.Name = Right(rawData(1)(i)(1).BatteryCode, 4)
-        batteryInfo.Index = i
+    For i = 1 To batteryCount
+        Set batteryInfo = New batteryInfo
+        batteryInfo.Name = Right(rawData(1)(i)(1).batteryCode, 4)
+        batteryInfo.index = i
         batteryCodeCollection.Add batteryInfo
-    next i
+    Next i
 
-    dim batteryCodeNameCollection as collection
-    set batteryCodeNameCollection = commonConfig("BatteryNames")
+    Dim batteryCodeNameCollection As Collection
+    Set batteryCodeNameCollection = commonConfig("BatteryNames")
 
     '创建新的集合存储电池名称
     Dim batteryNameCollection As New Collection
@@ -439,8 +439,8 @@ Private Function GetBatteryNames(ByVal rawData As Collection, _
     For Each batteryInfo In batteryCodeCollection
         Dim found As Boolean
         found = False
-        For j = 1 To batteryCodeNameCollection.Count
-            If batteryInfo.Index = batteryCodeNameCollection(j).Index Then
+        For j = 1 To batteryCodeNameCollection.count
+            If batteryInfo.index = batteryCodeNameCollection(j).index Then
                 batteryNameCollection.Add batteryCodeNameCollection(j)
                 found = True
                 Exit For
@@ -449,7 +449,7 @@ Private Function GetBatteryNames(ByVal rawData As Collection, _
         If Not found Then
             batteryNameCollection.Add batteryInfo
         End If
-    Next batteryInfo    
+    Next batteryInfo
     
     Set GetBatteryNames = batteryNameCollection
     Exit Function
@@ -458,6 +458,8 @@ ErrorHandler:
     Debug.Print Now & " - GetBatteryNames error: " & Err.Description
     Set GetBatteryNames = Nothing
 End Function
+
+
 
 
 
