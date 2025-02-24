@@ -606,11 +606,7 @@ Private Sub FillDCIRData(ByVal dcirTable As ListObject, _
     If Not ValidateDCIRInputs(dcirTable, batteryZPDCRData, cycleConfig) Then
         Exit Sub
     End If
-    
-    Application.ScreenUpdating = False
-    Application.EnableEvents = False
-    Application.Calculation = xlCalculationManual
-    
+        
     '计算DCIR数据
     Dim dcirRiseData As Collection
     Set dcirRiseData = CalculateZPDCRResults(batteryZPDCRData, cycleConfig)
@@ -631,11 +627,7 @@ Private Sub FillDCIRData(ByVal dcirTable As ListObject, _
         dataRange.value = tableData
         FormatDCIRData dataRange
     End If
-    
-    Application.ScreenUpdating = True
-    Application.EnableEvents = True
-    Application.Calculation = xlCalculationAutomatic
-    
+        
     Exit Sub
     
 ErrorHandler:
