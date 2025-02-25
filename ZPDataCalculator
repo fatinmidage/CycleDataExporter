@@ -655,6 +655,8 @@ Private Function GetLargeZPDischargeCurrents(ByVal batteryZPDCRData As Collectio
     '缓存工步号
     Dim dischargeStepNo As Long
     dischargeStepNo = stepNumbers("dischargeStepNo")
+    Dim largeZPDischargeStepNo As Long
+    largeZPDischargeStepNo = stepNumbers("largeZPDischargeStepNo")
     
     '使用数组存储中间结果
     Dim currentCount As Long
@@ -670,7 +672,7 @@ Private Function GetLargeZPDischargeCurrents(ByVal batteryZPDCRData As Collectio
         With batteryZPDCRData(i)
             currentStepNo = .stepNo
             
-            If currentStepNo = dischargeStepNo Then
+            If currentStepNo = dischargeStepNo Or currentStepNo = largeZPDischargeStepNo Then
                 totalCurrent = totalCurrent + Abs(.current)
                 count = count + 1
                 isInDischargeStep = True
