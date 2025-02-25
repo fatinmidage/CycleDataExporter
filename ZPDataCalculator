@@ -216,7 +216,7 @@ Private Function CalculateSingleSOCDCR(ByVal batteryZPDCRData As Collection, _
     
     '获取放电工步的平均电流值
     Dim dischargeCurrents As Collection
-    Set dischargeCurrents = GetDischargeCurrents(batteryZPDCRData, stepNumbers)
+    Set dischargeCurrents = GetDischargeCurrents(batteryZPDCRData, stepNumbers, hasBigZPDCR)
     
     '计算DCR值
     Dim dcrResult As New Collection
@@ -549,15 +549,10 @@ End Function
 '******************************************
 ' 函数: GetDischargeCurrents
 ' 用途: 获取放电工步的电流值
-' 参数:
-'   - batteryZPDCRData: 电池DCR数据
-'   - stepNumbers: 工步号集合
-' 返回: Collection，包含所有放电电流值
-' 说明: 此函数计算放电工步的平均电流值
-'      通过累加放电工步中的所有电流值并取平均值
 '******************************************
 Private Function GetDischargeCurrents(ByVal batteryZPDCRData As Collection, _
-                                    ByVal stepNumbers As Collection) As Collection
+                                    ByVal stepNumbers As Collection, _
+                                    ByVal hasBigZPDCR As Boolean) As Collection
     
     On Error GoTo ErrorHandler
     
@@ -567,9 +562,28 @@ Private Function GetDischargeCurrents(ByVal batteryZPDCRData As Collection, _
         Exit Function
     End If
     
-    '预分配数组大小（预估最大可能的电流值数量）
+    '根据模式选择相应的处理函数
+    If hasBigZPDCR Then
+        Set GetDischargeCurrents = GetLargeZPDischargeCurrents(batteryZPDCRData, stepNumbers)
+    Else
+        Set GetDischargeCurrents = GetStandardZPDischargeCurrents(batteryZPDCRData, stepNumbers)
+    End If
+    Exit Function
+    
+ErrorHandler:
+    LogError "GetDischargeCurrents", Err.Description
+    Set GetDischargeCurrents = New Collection
+End Function
+
+'******************************************
+' 函数: GetStandardZPDischargeCurrents
+' 用途: 获取标准中检模式下的放电工步电流值
+'******************************************
+Private Function GetStandardZPDischargeCurrents(ByVal batteryZPDCRData As Collection, _
+                                              ByVal stepNumbers As Collection) As Collection
+    '预分配数组大小
     Dim maxPossibleCount As Long
-    maxPossibleCount = batteryZPDCRData.count \ 2  '假设最多有一半的数据是放电点
+    maxPossibleCount = batteryZPDCRData.count \ 2
     
     Dim currentArray() As Double
     ReDim currentArray(1 To maxPossibleCount)
@@ -622,14 +636,72 @@ Private Function GetDischargeCurrents(ByVal batteryZPDCRData As Collection, _
         Next i
     End If
     
-    Set GetDischargeCurrents = results
-    Exit Function
-    
-ErrorHandler:
-    LogError "GetDischargeCurrents", Err.Description
-    Set GetDischargeCurrents = New Collection
+    Set GetStandardZPDischargeCurrents = results
 End Function
 
+'******************************************
+' 函数: GetLargeZPDischargeCurrents
+' 用途: 获取大检模式下的放电电流值
+'******************************************
+Private Function GetLargeZPDischargeCurrents(ByVal batteryZPDCRData As Collection, _
+                                            ByVal stepNumbers As Collection) As Collection
+    '预分配数组大小
+    Dim maxPossibleCount As Long
+    maxPossibleCount = batteryZPDCRData.count \ 2
+    
+    Dim currentArray() As Double
+    ReDim currentArray(1 To maxPossibleCount)
+    
+    '缓存工步号
+    Dim dischargeStepNo As Long
+    dischargeStepNo = stepNumbers("dischargeStepNo")
+    
+    '使用数组存储中间结果
+    Dim currentCount As Long
+    currentCount = 0
+    
+    Dim i As Long
+    Dim currentStepNo As Long
+    Dim totalCurrent As Double
+    Dim count As Long
+    Dim isInDischargeStep As Boolean
+    
+    For i = 1 To batteryZPDCRData.count
+        With batteryZPDCRData(i)
+            currentStepNo = .stepNo
+            
+            If currentStepNo = dischargeStepNo Then
+                totalCurrent = totalCurrent + Abs(.current)
+                count = count + 1
+                isInDischargeStep = True
+            ElseIf isInDischargeStep Then
+                If count > 0 Then
+                    currentCount = currentCount + 1
+                    currentArray(currentCount) = totalCurrent / count
+                End If
+                totalCurrent = 0
+                count = 0
+                isInDischargeStep = False
+            End If
+        End With
+    Next i
+    
+    '处理最后一次放电工步
+    If isInDischargeStep And count > 0 Then
+        currentCount = currentCount + 1
+        currentArray(currentCount) = totalCurrent / count
+    End If
+    
+    '将有效数据转换为Collection
+    Dim results As New Collection
+    If currentCount > 0 Then
+        For i = 1 To currentCount
+            results.Add currentArray(i)
+        Next i
+    End If
+    
+    Set GetLargeZPDischargeCurrents = results
+End Function
 
 '******************************************
 ' 过程: LogError
