@@ -548,7 +548,8 @@ Private Function CalculateZPResults(ByVal cycleInterval As Long, _
     '如果是"仅中检一次"方法,直接返回原始数据
     If calcMethod = "仅中检一次" Then
         For i = 1 To batteryZPData.count
-            Dim singleResult As New Collection
+            Dim singleResult As Collection
+            Set singleResult = New Collection  '添加初始化语句
             With batteryZPData(i)
                 singleResult.Add (i - 1) * cycleInterval  '循环圈数
                 singleResult.Add .capacity                '容量

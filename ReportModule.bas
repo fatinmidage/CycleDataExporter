@@ -148,10 +148,10 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     Dim originalStyle As Boolean
     originalStyle = Application.ReferenceStyle
     
-    '设置为R1C1引用样式
-    If Application.ReferenceStyle <> XlReferenceStyle.xlR1C1 Then
-        Application.ReferenceStyle = XlReferenceStyle.xlR1C1
-    End If
+    ' '设置为R1C1引用样式
+    ' If Application.ReferenceStyle <> XlReferenceStyle.xlR1C1 Then
+    '     Application.ReferenceStyle = XlReferenceStyle.xlR1C1
+    ' End If
     
     '获取当前工作簿
     Dim wb As Workbook
@@ -253,9 +253,9 @@ Private Function SetupWorksheetStyle(ByVal ws As Worksheet, ByVal commonConfig A
     originalStyle = Application.ReferenceStyle
     
     '设置为R1C1引用样式
-    If Application.ReferenceStyle <> xlR1C1 Then
-        Application.ReferenceStyle = xlR1C1
-    End If
+    ' If Application.ReferenceStyle <> xlR1C1 Then
+    '     Application.ReferenceStyle = xlR1C1
+    ' End If
     
     '初始化工作表
     InitializeWorksheet ws
