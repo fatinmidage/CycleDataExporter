@@ -45,9 +45,7 @@ Public Function CreateDataCharts(ByVal ws As Worksheet, _
                                ByVal cycleDataTables As Collection) As Long
     
     On Error GoTo ErrorHandler
-    
-    Application.ScreenUpdating = False  '关闭屏幕更新以提高性能
-    
+        
     '创建图表标题行
     With ws.Cells(nextRow, 2)
         .value = "2.测试数据图表:"
@@ -66,14 +64,20 @@ Public Function CreateDataCharts(ByVal ws As Worksheet, _
     nextRow = nextRow + CHART_TOTAL_SPACING
     
     '创建DCR增长率图表
-    CreateDCRRiseChart ws, nextRow, zpTables, commonConfig(3)
+    CreateDCRRiseChart ws, nextRow, zpTables, commonConfig(3), "容量保持率"
+
+    '计算下一个图表的起始位置
+    nextRow = nextRow + CHART_TOTAL_SPACING/2
     
-    Application.ScreenUpdating = True
+    '创建DCR增长率图表
+    CreateDCRRiseChart ws, nextRow, zpTables, commonConfig(3), "能量保持率"
+
+    
+    
     CreateDataCharts = nextRow
     Exit Function
     
 ErrorHandler:
-    Application.ScreenUpdating = True
     LogError "CreateDataCharts", Err.Description
     CreateDataCharts = nextRow
 End Function
@@ -346,11 +350,13 @@ End Sub
 '   - ws: 工作表对象
 '   - zpTables: 中检数据表格集合
 '   - colorCollection: 颜色集合
+'   - fieldName: 数据列名称
 '******************************************
 Private Sub AddZPDataSeriesToChart(ByVal cht As chart, _
                                  ByVal ws As Worksheet, _
                                  ByVal zpTables As Collection, _
-                                 ByVal colorCollection As Collection)
+                                 ByVal colorCollection As Collection, _
+                                 ByVal fieldName As String)
     
     '遍历每个电池的中检数据表
     Dim batteryIndex As Long
@@ -374,10 +380,16 @@ Private Sub AddZPDataSeriesToChart(ByVal cht As chart, _
             '添加数据系列
             With cht.SeriesCollection.NewSeries
                 .XValues = zpCapacityTable.ListColumns("循环圈数").DataBodyRange
-                .Values = zpCapacityTable.ListColumns("容量保持率").DataBodyRange
+                '根据字段名称选择不同的数据列
+                If fieldName = "容量保持率" Then
+                    .Values = zpCapacityTable.ListColumns("容量保持率").DataBodyRange
+                ElseIf fieldName = "能量保持率" Then
+                    .Values = zpCapacityTable.ListColumns("能量保持率").DataBodyRange
+                End If
                 .Name = ws.Cells(zpCapacityTable.Range.row - 1, zpCapacityTable.Range.column).value
                 .markerStyle = xlMarkerStyleCircle  ' 设置圆形标记
                 .Format.Line.Weight = 1.5
+                .Format.Line.ForeColor.RGB = colorCollection(batteryIndex)
                 .MarkerSize = 4                     ' 设置标记大小
                 .MarkerForegroundColor = colorCollection(batteryIndex)  ' 标记边框颜色
                 .MarkerBackgroundColor = RGB(255, 255, 255)  ' 标记填充白色
@@ -393,12 +405,14 @@ End Sub
 '   - ws: 目标工作表对象
 '   - topRow: 图表顶部所在行号
 '   - zpTables: 中检数据表格集合
-'   - colorCollection: 颜色集合，包含不同型号电池的曲线颜色
+'   - colorCollection: 颜色集合
+'   - fieldName: 数据列名称（"容量保持率"或"能量保持率"）
 '******************************************
 Private Sub CreateDCRRiseChart(ByVal ws As Worksheet, _
                              ByVal topRow As Long, _
                              ByVal zpTables As Collection, _
-                             ByVal colorCollection As Collection)
+                             ByVal colorCollection As Collection, _
+                             ByVal fieldName As String)
 
     '创建图表对象并设置基本属性
     Dim chartObj As chartObject
@@ -410,7 +424,7 @@ Private Sub CreateDCRRiseChart(ByVal ws As Worksheet, _
         .chartType = xlXYScatterLines
         
         '添加主坐标轴数据系列
-        AddZPDataSeriesToChart chartObj.chart, ws, zpTables, colorCollection
+        AddZPDataSeriesToChart chartObj.chart, ws, zpTables, colorCollection, fieldName
         
         '添加次坐标轴数据系列
         AddDCIRDataSeriesToChart chartObj.chart, ws, zpTables, colorCollection
@@ -436,7 +450,7 @@ Private Sub CreateDCRRiseChart(ByVal ws As Worksheet, _
         SetupChartTitle chartObj.chart, "ZP of Cycle"
         
         '设置坐标轴属性
-        SetupChartAxes chartObj.chart, "Residual Capacity"
+        SetupChartAxes chartObj.chart, IIf(fieldName = "容量保持率", "Residual Capacity", "Residual Energy")
         
         '设置图例属性
         SetupChartLegend .legend, 330

@@ -114,12 +114,23 @@ Public Sub GenerateReport()
     '获取电池名称
     Dim batteryNames As Collection
     Set batteryNames = GetBatteryNames(rawData, commonConfig)
+
+    '关闭屏幕更新以提高性能
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.Calculation = xlCalculationManual
     
     '输出报告
     If OutputReport(reportIndex, reportName, rawData, cycleConfig, commonConfig, batteryNames) Then
         MsgBox "报告生成完成！", vbInformation, "成功"
     End If
     Exit Sub
+
+    '恢复屏幕更新
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    Application.Calculation = xlCalculationAutomatic
+
     
 ErrorHandler:
     MsgBox "生成报告时发生错误：" & vbNewLine & Err.Description, vbCritical, "错误"
@@ -144,14 +155,6 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     
     On Error GoTo ErrorHandler
     
-    '保存当前引用样式
-    Dim originalStyle As Boolean
-    originalStyle = Application.ReferenceStyle
-    
-    ' '设置为R1C1引用样式
-    ' If Application.ReferenceStyle <> XlReferenceStyle.xlR1C1 Then
-    '     Application.ReferenceStyle = XlReferenceStyle.xlR1C1
-    ' End If
     
     '获取当前工作簿
     Dim wb As Workbook
@@ -214,8 +217,6 @@ Private Function OutputReport(ByVal reportIndex As Long, _
     Dim chartRow As Long
     chartRow = CreateDataCharts(ws, nextRow, reportName, commonConfig, zpTables, cycleDataTables)
     
-    '恢复引用样式
-    Application.ReferenceStyle = originalStyle
     ws.Activate
     
     OutputReport = True
