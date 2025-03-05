@@ -220,12 +220,17 @@ Private Function CalculateSingleSOCDCR(ByVal batteryZPDCRData As Collection, _
     
     '计算DCR值
     Dim dcrResult As New Collection
-    Dim i As Long
-    For i = 1 To measureVoltages.count
-        '使用DCR计算公式：(搁置电压 - 放电电压) / |放电电流| * 1000
-        '乘以1000是为了将单位转换为毫欧
-        dcrResult.Add ((measureVoltages(i) - dischargeVoltages(i)) / Abs(dischargeCurrents(i))) * 1000
-    Next i
+    Dim i As Long  '添加变量声明
+    With dcrResult
+        For i = 1 To measureVoltages.count
+            '预先计算分子和分母可减少重复计算
+            Dim voltageDiff As Double
+            Dim currentAbs As Double
+            voltageDiff = measureVoltages(i) - dischargeVoltages(i)
+            currentAbs = Abs(dischargeCurrents(i))
+            .Add (voltageDiff / currentAbs) * 1000
+        Next i
+    End With
     
     Set CalculateSingleSOCDCR = dcrResult
 End Function
@@ -282,12 +287,12 @@ Private Function GetMeasureVoltages(ByVal batteryZPDCRData As Collection, _
     
     '将有效数据转换为Collection
     Dim results As New Collection
-    If voltageCount > 0 Then
-        Dim i As Long
+    Dim i As Long  '添加变量声明
+    With results
         For i = 1 To voltageCount
-            results.Add voltageArray(i)
+            .Add voltageArray(i)
         Next i
-    End If
+    End With
     
     Set GetMeasureVoltages = results
     Exit Function
@@ -456,12 +461,12 @@ Private Function GetDischargeVoltages(ByVal batteryZPDCRData As Collection, _
 
     '将有效数据转换为Collection
     Dim results As New Collection
-    If voltageCount > 0 Then
-        Dim i As Long
+    Dim i As Long  '添加变量声明
+    With results
         For i = 1 To voltageCount
-            results.Add voltageArray(i)
+            .Add voltageArray(i)
         Next i
-    End If
+    End With
     
     Set GetDischargeVoltages = results
     Exit Function

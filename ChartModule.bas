@@ -45,6 +45,9 @@ Public Function CreateDataCharts(ByVal ws As Worksheet, _
                                ByVal cycleDataTables As Collection) As Long
     
     On Error GoTo ErrorHandler
+    
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
         
     '创建图表标题行
     With ws.Cells(nextRow, 2)
@@ -74,11 +77,17 @@ Public Function CreateDataCharts(ByVal ws As Worksheet, _
 
     
     
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    
     CreateDataCharts = nextRow
     Exit Function
     
 ErrorHandler:
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
     LogError "CreateDataCharts", Err.Description
+    MsgBox "创建图表时出错: " & Err.Description, vbExclamation
     CreateDataCharts = nextRow
 End Function
 
@@ -327,8 +336,6 @@ Private Sub SetupChartLegend(ByVal legend As legend, _
     End With
 End Sub
 
-
-
 '******************************************
 ' 过程: LogError
 ' 用途: 记录错误信息到即时窗口（Debug Window）
@@ -360,9 +367,11 @@ Private Sub AddZPDataSeriesToChart(ByVal cht As chart, _
     
     '遍历每个电池的中检数据表
     Dim batteryIndex As Long
-    Dim shouldSkip As Boolean  ' 添加变量声明
     
     For batteryIndex = 1 To zpTables.count
+        Dim shouldSkip As Boolean
+        shouldSkip = False  ' 每次循环重置标志
+        
         Dim batteryTables As Collection
         Set batteryTables = zpTables(batteryIndex)
         

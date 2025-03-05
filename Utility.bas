@@ -205,10 +205,12 @@ Function ExtractCycleDataFromWorksheet(ByVal ws As Worksheet) As Collection
     Dim i As Long, j As Long, k As Long '循环计数器
     Dim cycleData As CBatteryCycleRaw   '单条循环数据对象
     Dim dataGroups As Collection        '存储所有数据组的起始列号
+    Dim cycleNumber As Long            '循环圈数
     Dim stepNo As Long
     Dim capacity As Double
     Dim energy As Double
     Dim batteryCode As String
+    Dim groupLastRow As Long           '每个数据组的最后一行
     
     On Error Resume Next
     
@@ -219,11 +221,10 @@ Function ExtractCycleDataFromWorksheet(ByVal ws As Worksheet) As Collection
     End If
     
     '获取工作表的有效范围
-    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
     
     '添加数据有效性检查
-    If lastRow <= 1 Or lastCol <= 0 Then
+    If lastCol <= 0 Then
         Set ExtractCycleDataFromWorksheet = New Collection
         Exit Function
     End If
@@ -243,11 +244,15 @@ Function ExtractCycleDataFromWorksheet(ByVal ws As Worksheet) As Collection
         
         j = dataGroups(k) '获取当前数据组的起始列
         
+        '计算当前数据组的最后一行
+        groupLastRow = ws.Cells(ws.Rows.Count, j).End(xlUp).Row
+        
         '处理该组的每一行数据
-        For i = 2 To lastRow
+        For i = 2 To groupLastRow
             On Error Resume Next
             If Not IsEmpty(ws.Cells(i, j)) Then
                 '安全地转换数据类型
+                cycleNumber = i - 1
                 stepNo = CLng(ws.Cells(i, j).value)
                 batteryCode = CStr(ws.Cells(i, j + 1).value)
                 capacity = Abs(CDbl(ws.Cells(i, j + 2).value))
@@ -255,7 +260,7 @@ Function ExtractCycleDataFromWorksheet(ByVal ws As Worksheet) As Collection
                 
                 If Err.Number = 0 Then
                     Set cycleData = New CBatteryCycleRaw
-                    cycleData.Initialize stepNo, capacity, energy, batteryCode
+                    cycleData.Initialize stepNo, capacity, energy, batteryCode, cycleNumber
                     
                     '将数据对象添加到组数据集合
                     groupData.Add cycleData
@@ -313,7 +318,7 @@ End Function
 Function ExtractZPDCRDataFromWorksheet(ByVal ws As Worksheet) As Collection
     Dim result As New Collection        '存储所有组数据的集合
     Dim groupData As Collection         '存储单组数据的集合
-    Dim lastRow As Long, lastCol As Long '工作表的有效范围
+    Dim lastCol As Long                 '工作表的有效范围
     Dim i As Long, j As Long, k As Long '循环计数器
     Dim zpData As CBatteryZPRaw        '单条中检数据对象
     Dim dataGroups As Collection        '存储所有数据组的起始列号
@@ -322,11 +327,11 @@ Function ExtractZPDCRDataFromWorksheet(ByVal ws As Worksheet) As Collection
     Dim stepTime As Variant
     Dim voltage As Double
     Dim current As Double
+    Dim groupLastRow As Long           '每个数据组的最后一行
     
     On Error Resume Next
     
     '获取工作表的有效范围
-    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
     
     '第一步：识别所有数据组
@@ -344,8 +349,11 @@ Function ExtractZPDCRDataFromWorksheet(ByVal ws As Worksheet) As Collection
         
         j = dataGroups(k) '获取当前数据组的起始列
         
+        '计算当前数据组的最后一行
+        groupLastRow = ws.Cells(ws.Rows.Count, j).End(xlUp).Row
+        
         '处理该组的每一行数据
-        For i = 2 To lastRow
+        For i = 2 To groupLastRow
             If Not IsEmpty(ws.Cells(i, j)) Then
                 '安全地转换数据类型
                 On Error Resume Next
@@ -373,8 +381,7 @@ Function ExtractZPDCRDataFromWorksheet(ByVal ws As Worksheet) As Collection
     '返回结果集合
     Set ExtractZPDCRDataFromWorksheet = result
     On Error GoTo 0
-End Function 
-
+End Function
 
 '******************************************
 ' 函数: ReadCycleConfig

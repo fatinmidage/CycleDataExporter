@@ -8,6 +8,7 @@ Private pStepNo As Long        '工步号
 Private pCapacity As Double    '容量
 Private pEnergy As Double      '能量
 Private pBatteryCode As String '电池条码
+Private pCycleNumber As Long   '循环圈数
 
 '******************************************
 ' 过程: Initialize
@@ -17,15 +18,18 @@ Private pBatteryCode As String '电池条码
 '   - capacity: 容量
 '   - energy: 能量
 '   - batteryCode: 电池条码（可选）
+'   - cycleNumber: 循环圈数（可选）
 '******************************************
 Public Sub Initialize(ByVal stepNo As Long, _
                      ByVal capacity As Double, _
                      ByVal energy As Double, _
-                     Optional ByVal batteryCode As String = "")
+                     Optional ByVal batteryCode As String = "", _
+                     Optional ByVal cycleNumber As Long = 0)
     pStepNo = stepNo
     pCapacity = capacity
     pEnergy = energy
     pBatteryCode = batteryCode
+    pCycleNumber = cycleNumber
 End Sub
 
 '******************************************
@@ -70,4 +74,15 @@ Public Property Get BatteryCode() As String
 End Property
 Public Property Let BatteryCode(value As String)
     pBatteryCode = value
+End Property
+
+'******************************************
+' 属性: CycleNumber
+' 用途: 获取或设置循环圈数
+'******************************************
+Public Property Get CycleNumber() As Long
+    CycleNumber = pCycleNumber
+End Property
+Public Property Let CycleNumber(value As Long)
+    pCycleNumber = value
 End Property 

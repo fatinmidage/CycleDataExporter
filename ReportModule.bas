@@ -122,7 +122,7 @@ Public Sub GenerateReport()
     
     '输出报告
     If OutputReport(reportIndex, reportName, rawData, cycleConfig, commonConfig, batteryNames) Then
-        MsgBox "报告生成完成！", vbInformation, "成功"
+        MsgBox "搞定！", vbInformation, "成功"
     End If
     Exit Sub
 

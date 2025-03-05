@@ -5,7 +5,6 @@ Function InitialApplication() As Boolean
     EnableNetwork                               ' 启用网盘挂载
     CheckApplicationVersion                     ' 检查软件版本
     DATABASE_PATH = CheckForDatabaseFile()      ' 检查是否使用本地数据库
-    DeleteHiddenNames
     InitialApplication = True
 End Function
 
