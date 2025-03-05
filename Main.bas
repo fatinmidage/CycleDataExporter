@@ -1,7 +1,7 @@
 Option Explicit
 ' App信息
 Public Const APP_ID As String = 2
-Public Const APP_VERSION As String = "4.0.0"
+Public Const APP_VERSION As String = "4.0.8"
 
 ' 主程序
 Sub ExportReport()
