@@ -212,7 +212,7 @@ Private Sub FillCycleData(ByVal cycleListObj As ListObject, _
     For j = 1 To filteredData.count
         Set cycleData = filteredData(j)
         With cycleData
-            dataArray(j, 1) = j  '循环圈数
+            dataArray(j, 1) = cycleData.CycleNumber  '循环圈数
             dataArray(j, 2) = Format(.energy, "0.000000")  '放电能量
             dataArray(j, 3) = Format(.energy / firstEnergy, "0.00%")  '能量保持率
             dataArray(j, 4) = Format(.capacity, "0.000")  '放电容量
